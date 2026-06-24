@@ -3,8 +3,6 @@ Centralized configuration management for NEXARIS Backend
 Enforces secure defaults and environment-based overrides
 """
 import os
-from typing import Optional
-from functools import lru_cache
 import logging
 from dotenv import load_dotenv
 
@@ -52,12 +50,6 @@ class Settings:
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-    # ==================== VALIDATION CONSTRAINTS ====================
-    CITIZEN_ID_MIN_LENGTH: int = 3
-    CITIZEN_ID_MAX_LENGTH: int = 64
-    LOCATION_CONTEXT_MAX_LENGTH: int = 500
-    INTENT_MAX_LENGTH: int = 200
-    RESOURCE_TYPE_MAX_LENGTH: int = 100
 
     @classmethod
     def validate_all(cls) -> bool:

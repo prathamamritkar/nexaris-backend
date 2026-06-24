@@ -9,7 +9,7 @@ from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from neo4j import GraphDatabase, exceptions as neo4j_exceptions
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 import requests
 import os
 
@@ -43,7 +43,7 @@ def get_db_driver():
             driver = GraphDatabase.driver(
                 settings.NEO4J_URI,
                 auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
-                connection_pool_size=settings.NEO4J_CONNECTION_POOL_SIZE,
+                max_connection_pool_size=settings.NEO4J_CONNECTION_POOL_SIZE,
             )
             driver.verify_connectivity()
             logger.info("✅ Connected to Neo4j database")
@@ -121,23 +121,28 @@ class ResourceRequest(BaseModel):
     urgency: str = Field(..., description="Priority level")
     location_context: str = Field(..., description="Relevant location context")
 
-    @validator("citizen_id")
+    @field_validator("citizen_id", mode="before")
+    @classmethod
     def validate_citizen_id_field(cls, v):
         return validate_citizen_id(v)
 
-    @validator("intent")
+    @field_validator("intent", mode="before")
+    @classmethod
     def validate_intent_field(cls, v):
         return validate_intent(v)
 
-    @validator("item")
+    @field_validator("item", mode="before")
+    @classmethod
     def validate_item_field(cls, v):
         return validate_resource_type(v)
 
-    @validator("urgency")
+    @field_validator("urgency", mode="before")
+    @classmethod
     def validate_urgency_field(cls, v):
         return validate_urgency(v)
 
-    @validator("location_context")
+    @field_validator("location_context", mode="before")
+    @classmethod
     def validate_location_field(cls, v):
         return validate_location_context(v)
 
@@ -492,16 +497,3 @@ async def general_exception_handler(request, exc):
             "timestamp": datetime.utcnow().isoformat(),
         },
     )
-
-
-# ==================== STARTUP VERIFICATION ====================
-@app.on_event("startup")
-async def startup_event():
-    """Verify configuration and database on startup"""
-    logger.info("🚀 NEXARIS Engine starting up...")
-
-    if not settings.validate_all():
-        logger.error("Configuration validation failed")
-        raise RuntimeError("Invalid configuration")
-
-    logger.info("✅ Configuration validated")
