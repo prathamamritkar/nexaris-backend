@@ -145,6 +145,15 @@ if st.button("📤 Submit Request", use_container_width=True, type="primary"):
                 logger.error(f"Request submission error: {e}")
                 st.error(f"❌ An error occurred: {str(e)[:100]}")
 
+# ==================== HELPERS ====================
+def backend_url_accessible(url: str, timeout: int = 5) -> bool:
+    """Check if backend health endpoint is accessible"""
+    try:
+        response = requests.get(f"{url}/health", timeout=timeout)
+        return response.status_code == 200
+    except Exception:
+        return False
+
 # ==================== SIDEBAR INFO ====================
 with st.sidebar:
     st.subheader("ℹ️ System Info")
@@ -165,16 +174,7 @@ with st.sidebar:
     )
 
 
-def backend_url_accessible(url: str, timeout: int = 5) -> bool:
-    """Check if backend health endpoint is accessible"""
-    try:
-        response = requests.get(
-            f"{url}/health",
-            timeout=timeout
-        )
-        return response.status_code == 200
-    except Exception:
-        return False
+
 
 
 if __name__ == "__main__":
