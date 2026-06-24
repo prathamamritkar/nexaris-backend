@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, File, UploadFile, Depends, Security
+from fastapi import FastAPI, HTTPException, File, UploadFile, Depends, Security, Header
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -14,6 +14,7 @@ import requests
 import os
 
 from config import settings
+from nlp_engine import nlp
 from validators import (
     validate_citizen_id,
     validate_location_context,
@@ -282,11 +283,11 @@ async def migrate_relationships():
 
 
 @app.get("/api/v1/graph-state")
-async def get_graph_state():
-    """
-    Retrieve current graph state (AUTHENTICATED ONLY IN PRODUCTION)
-    TODO: Add authentication/authorization
-    """
+async def get_graph_state(x_admin_key: str = Header(None)):
+    """Retrieve current graph state (AUTHENTICATED)"""
+    # Verify the key matches what you set in Render's Environment Variables
+    if x_admin_key != os.getenv("ADMIN_SECRET_KEY", "fallback_secret"):
+        raise HTTPException(status_code=401, detail="Unauthorized Command Center Access")
     try:
         query = """
         MATCH (c:Citizen)-[n:NEEDS]->(r:Resource)
@@ -445,23 +446,45 @@ async def process_vernacular_audio(file: UploadFile = File(...)):
 
             logger.info(f"Transcription successful: {len(transcript)} characters")
 
-            # Step 2: Structure output (TODO: add LLM-based entity extraction)
+            # Step 2: Zero-Dependency Deterministic Entity Extraction
+            # We process the Sarvam transcript using pure Python logic. No LLM APIs.
+            # Instantaneous, free, and perfectly deterministic.
+            
+            extracted_entities = nlp.extract_entities(transcript)
+
             structured_payload = {
                 "intent": "RESOURCE_REQUEST",
-                "entities": {
-                    "item": "Pending_LLM_Extraction",
-                    "urgency": "HIGH",
-                    "location_context": "Pending_LLM_Extraction",
-                    "transcript_preview": transcript[:100] + "..." if len(transcript) > 100 else transcript,
-                }
+                "entities": extracted_entities
             }
+            
+            # Step 3: Automatically ingest this into the Topological Graph (Neo4j)
+            # Instead of just returning the data, we actually trigger the DB mapping
+            ingest_query = """
+            MERGE (c:Citizen {id: $citizen_id})
+            MERGE (r:Resource {type: $item})
+            MERGE (c)-[:NEEDS {
+                intent: 'RESOURCE_REQUEST',
+                urgency: $urgency,
+                location: $location,
+                status: 'PENDING',
+                timestamp: $timestamp,
+                created_by: 'v2v_audio_bridge'
+            }]->(r)
+            """
+            run_cypher(
+                ingest_query,
+                citizen_id=f"voice_node_{int(datetime.utcnow().timestamp())}",
+                item=extracted_entities["item"],
+                urgency=extracted_entities["urgency"],
+                location=extracted_entities["location_context"],
+                timestamp=datetime.utcnow().isoformat()
+            )
 
-            # Step 3: Log but don't store raw transcript (privacy)
-            logger.debug("Audio processing pipeline complete")
+            logger.info("Acoustic pipeline processed and mapped to T-Core successfully.")
 
             return {
                 "status": "success",
-                "message": "Audio processed and queued for entity extraction",
+                "message": "Audio processed and mapped to topological network",
                 "structured_payload": structured_payload,
                 "timestamp": datetime.utcnow().isoformat(),
             }
