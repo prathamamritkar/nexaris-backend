@@ -150,14 +150,10 @@ h1,h2,h3,h4,h5,h6,p,span,label{color:#ffffff!important}
 .block-container{background:#000000!important;border:2px solid #333333!important;border-radius:0px!important;padding:clamp(1.5rem,4vw,3rem)!important;max-width:600px!important;margin:clamp(1rem,5vh,4rem) auto!important}
 audio{filter:invert(1) hue-rotate(180deg) contrast(1.5);border-radius:0px;width:100%;margin-top:2rem}
 [data-testid="stSidebar"]{background-color:#050505!important;border-right:2px solid #333333!important}
-[data-testid="stSidebar"] [data-testid="stMetricValue"], [data-testid="stSidebar"] [data-testid="stMetricLabel"], [data-testid="stSidebar"] [data-testid="stMetricDelta"]{text-align:left!important; display:block!important; width:100%!important;}
-[data-testid="stSidebar"] [data-testid="stMetricValue"]{font-size:1.4rem!important;}
-[data-testid="stSidebar"] [data-testid="stMetricLabel"]{font-size:0.9rem!important;opacity:0.8}
 [data-testid="stAlert"]{background-color:#000000!important;border:2px solid #555555!important;border-radius:0px!important;color:#ffffff!important}
 [data-testid="stAlert"][data-baseweb="notification"]{border-left:6px solid #FF4500!important}
-[data-testid="stMarkdownContainer"]{text-align:center!important;width:100%}
-iframe[title*="audio_recorder"]{margin:2rem auto!important;display:block!important;transition:transform 0.2s ease!important; border-radius: 50% !important; box-shadow: 0 0 20px rgba(0,174,239,0.2) !important;}
-iframe[title*="audio_recorder"]:hover{transform:scale(1.1)!important; box-shadow: 0 0 30px rgba(0,174,239,0.4) !important;}
+.block-container [data-testid="stMarkdownContainer"]{text-align:center!important;width:100%}
+div[data-testid="stComponentBlock"] { display: flex; justify-content: center; }
 .stButton>button{background-color:#E60000!important;color:#fff!important;border-radius:0px!important;border:1px solid #FF4D4D!important;height:clamp(60px,10vh,90px);font-weight:800;font-size:clamp(1rem,2.5vw,1.2rem);letter-spacing:2px;text-transform:uppercase;margin-top:1rem;width:100%}
 .stButton>button:hover{background-color:#FF1A1A!important;border-color:#fff!important}
 </style>
@@ -216,14 +212,14 @@ observer.observe(window.parent.document.body,{childList:true,subtree:true});
 st.subheader("🎙️ " + t['instructions'])
 
 # The Microphone Widget
-col1, col2, col3 = st.columns([1, 2, 1])
+col1, col2, col3 = st.columns([1, 1, 1])
 with col2:
     audio_bytes = audio_recorder(
         text="", 
         recording_color="#FF4500", # Pulsating red icon when recording
         neutral_color="#00AEEF",   # Cyber-blue icon normally
         icon_name="microphone",
-        icon_size="6x"
+        icon_size="5x"
     )
 
 if audio_bytes:
