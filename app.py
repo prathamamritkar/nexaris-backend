@@ -157,6 +157,13 @@ audio{filter:invert(1) hue-rotate(180deg) contrast(1.5);border-radius:8px;width:
 [data-testid="stAlert"]{background-color:#0d0d0d!important;border:2px solid #555555!important;border-radius:10px!important;color:#ffffff!important}
 [data-testid="stAlert"][data-baseweb="notification"]{border-left:6px solid #FF4500!important;border-radius:10px!important}
 .block-container [data-testid="stMarkdownContainer"]{text-align:center!important;width:100%}
+.stButton>button{background:linear-gradient(135deg,#C00000 0%,#E60000 60%,#FF2200 100%)!important;color:#ffffff!important;border-radius:10px!important;border:1.5px solid #FF4D4D!important;height:clamp(60px,10vh,90px);font-weight:800;font-size:clamp(1rem,2.5vw,1.2rem);letter-spacing:3px;text-transform:uppercase;margin-top:1rem;width:100%;box-shadow:0 4px 20px rgba(230,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.08);transition:all 0.18s cubic-bezier(0.4,0,0.2,1)}
+.stButton>button:hover{background:linear-gradient(135deg,#E60000 0%,#FF2200 60%,#FF4500 100%)!important;border-color:#FF7755!important;border-radius:10px!important;box-shadow:0 6px 28px rgba(255,69,0,0.5),inset 0 1px 0 rgba(255,255,255,0.12)!important;transform:translateY(-2px)}
+.stButton>button:active{background:linear-gradient(135deg,#990000 0%,#CC0000 100%)!important;border-color:#FF4D4D!important;border-radius:10px!important;box-shadow:0 2px 8px rgba(200,0,0,0.4)!important;transform:translateY(0px)}
+.stButton>button:focus:not(:active){border-color:#FF7755!important;border-radius:10px!important;box-shadow:0 0 0 3px rgba(255,69,0,0.25),0 4px 20px rgba(230,0,0,0.35)!important;outline:none!important}
+.stButton>button[kind="secondary"]{background:transparent!important;border:1.5px solid #444!important;border-radius:10px!important;color:#ccc!important;box-shadow:none!important}
+.stButton>button[kind="secondary"]:hover{border-color:#888!important;color:#fff!important;background:#111!important}
+[data-testid="stSpinner"]{border-radius:10px!important}
 [data-testid="stSpinner"] svg circle{stroke:#FF4500!important}
 </style>
 """, unsafe_allow_html=True)
