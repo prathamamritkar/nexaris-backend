@@ -150,13 +150,6 @@ st.markdown("""
     /* Force pure black background and neon accents */
     .stApp { background-color: #050505; color: #ffffff; }
     
-    /* Remove Streamlit's default excessive top padding and center the main block */
-    .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 2rem !important;
-        max-width: 800px;
-    }
-    
     /* Fix invisible text by explicitly coloring standard Streamlit typography */
     h1, h2, h3, h4, h5, h6, p, span, label {
         color: #ffffff !important;
@@ -180,14 +173,25 @@ st.markdown("""
         text-transform: uppercase;
         letter-spacing: 2px;
     }
-    .glass-card {
-        /* Flat Design only - no glassmorphism for citizen node */
-        background: #000000;
-        border: 2px solid #333333;
-        border-radius: 0px;
-        padding: clamp(1.5rem, 4vw, 2.5rem);
-        text-align: center;
-        margin-bottom: 2rem;
+    .block-container {
+        /* Apply the flat tactical design natively to the main Streamlit container */
+        background: #000000 !important;
+        border: 2px solid #333333 !important;
+        border-radius: 0px !important;
+        padding: clamp(1.5rem, 4vw, 3rem) !important;
+        max-width: 600px !important; /* Keep it compact and focused */
+        margin: clamp(1rem, 5vh, 4rem) auto !important; /* Proper browser margins */
+        text-align: center !important;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Center all subheaders and text */
+    [data-testid="stMarkdownContainer"] {
+        text-align: center !important;
+        width: 100%;
     }
     
     /* Massive circular button styling for the Audio Recorder iframe */
@@ -235,10 +239,12 @@ t = TRANSLATIONS.get(lang_code, TRANSLATIONS['en'])
 st.markdown(f"<div class='main-header'>🛰️ {t['title']}</div>", unsafe_allow_html=True)
 st.markdown(f"<div class='sub-header'>{t['subtitle']}</div>", unsafe_allow_html=True)
 
-st.markdown("<div style='text-align: center; margin-bottom: 2rem;'><h3 style='color: #ffffff;'>🎙️ " + t['instructions'] + "</h3></div>", unsafe_allow_html=True)
+st.subheader("🎙️ " + t['instructions'])
 
-# The Microphone Widget - Centered via CSS (margin: 0 auto on the iframe)
-audio_bytes = audio_recorder(
+# The Microphone Widget
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    audio_bytes = audio_recorder(
         text="", 
         recording_color="#ff4b4b", 
         neutral_color="#8b949e",
