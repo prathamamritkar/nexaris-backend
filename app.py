@@ -188,6 +188,32 @@ st.markdown("""
         justify-content: center;
     }
     
+    /* Force the native audio player into tactical dark mode */
+    audio {
+        filter: invert(1) hue-rotate(180deg) contrast(1.5);
+        border-radius: 0px;
+        width: 100%;
+        margin-top: 2rem;
+    }
+    
+    /* Ensure the sidebar strictly follows the tactical flat theme */
+    [data-testid="stSidebar"] {
+        background-color: #050505 !important;
+        border-right: 2px solid #333333 !important;
+    }
+    
+    /* Force flat styling on Streamlit success/error alerts */
+    [data-testid="stAlert"] {
+        background-color: #000000 !important;
+        border: 2px solid #555555 !important;
+        border-radius: 0px !important;
+        color: #ffffff !important;
+    }
+    [data-testid="stAlert"][data-baseweb="notification"] {
+        /* If it's an error, use tactical red. If success, use tactical green */
+        border-left: 6px solid #FF4500 !important; 
+    }
+    
     /* Center all subheaders and text */
     [data-testid="stMarkdownContainer"] {
         text-align: center !important;
@@ -200,15 +226,17 @@ st.markdown("""
         border-radius: 50% !important;
         border: 2px solid #FF4D4D !important;
         box-shadow: 0 0 clamp(20px, 5vw, 40px) rgba(230, 0, 0, 0.4) !important;
-        margin: 0 auto !important;
+        margin: 3rem auto !important; /* Increased margin to compensate for visual scale overlap */
         display: block !important;
-        width: clamp(100px, 25vw, 160px) !important;
-        height: clamp(100px, 25vw, 160px) !important;
-        transition: transform 0.2s ease;
+        /* Remove fixed width/height so the iframe perfectly wraps the clickable icon */
+        /* Instead, scale the entire iframe up. This scales the inner button too, making the 100% of the circle clickable! */
+        transform: scale(2.5) !important;
+        transform-origin: center !important;
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease !important;
     }
     
     iframe[title*="audio_recorder"]:hover {
-        transform: scale(1.05);
+        transform: scale(2.7) !important;
         background-color: #FF1A1A !important;
     }
     
@@ -223,6 +251,7 @@ st.markdown("""
         font-size: clamp(1rem, 2.5vw, 1.2rem);
         letter-spacing: 2px;
         text-transform: uppercase;
+        margin-top: 1rem;
     }
     .stButton>button:hover { 
         background-color: #FF1A1A !important; 
@@ -246,8 +275,8 @@ col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     audio_bytes = audio_recorder(
         text="", 
-        recording_color="#ff4b4b", 
-        neutral_color="#8b949e",
+        recording_color="#ffffff", /* Pure white icon when recording */
+        neutral_color="#ffffff",   /* Pure white icon normally, to contrast the red iframe background */
         icon_name="microphone",
         icon_size="3x"
     )
