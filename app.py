@@ -147,19 +147,19 @@ html,body,[class*="css"]{font-family:'Space Grotesk',monospace}
 h1,h2,h3,h4,h5,h6,p,span,label{color:#ffffff!important}
 .main-header{font-weight:800;font-size:clamp(1.8rem,6vw,3rem);color:#ffffff!important;margin-bottom:0.2rem;text-align:center;text-transform:uppercase;letter-spacing:clamp(2px,1vw,4px)}
 .sub-header{font-weight:600;font-size:clamp(0.9rem,3vw,1.2rem);color:#E0E0E0!important;margin-bottom:clamp(1.5rem,4vh,2.5rem);text-align:center;text-transform:uppercase;letter-spacing:2px}
-.block-container{background:#000000!important;border:2px solid #333333!important;border-radius:0px!important;padding:clamp(1.5rem,4vw,3rem)!important;max-width:600px!important;margin:clamp(1rem,5vh,4rem) auto!important;text-align:center!important;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.block-container{background:#000000!important;border:2px solid #333333!important;border-radius:0px!important;padding:clamp(1.5rem,4vw,3rem)!important;max-width:600px!important;margin:clamp(1rem,5vh,4rem) auto!important}
 audio{filter:invert(1) hue-rotate(180deg) contrast(1.5);border-radius:0px;width:100%;margin-top:2rem}
 [data-testid="stSidebar"]{background-color:#050505!important;border-right:2px solid #333333!important}
-div[data-testid="stMetric"]{align-items:flex-start!important}
-[data-testid="stMetricValue"]{font-size:1.2rem!important;text-align:left!important}
-[data-testid="stMetricLabel"]{font-size:0.9rem!important;text-align:left!important;opacity:0.8}
-[data-testid="stMetricDelta"]{text-align:left!important}
+[data-testid="stSidebar"] [data-testid="stMetricValue"], [data-testid="stSidebar"] [data-testid="stMetricLabel"], [data-testid="stSidebar"] [data-testid="stMetricDelta"]{text-align:left!important; display:block!important; width:100%!important;}
+[data-testid="stSidebar"] [data-testid="stMetricValue"]{font-size:1.4rem!important;}
+[data-testid="stSidebar"] [data-testid="stMetricLabel"]{font-size:0.9rem!important;opacity:0.8}
 [data-testid="stAlert"]{background-color:#000000!important;border:2px solid #555555!important;border-radius:0px!important;color:#ffffff!important}
 [data-testid="stAlert"][data-baseweb="notification"]{border-left:6px solid #FF4500!important}
 [data-testid="stMarkdownContainer"]{text-align:center!important;width:100%}
-iframe[title*="audio_recorder"]{background-color:#1A1A2E!important;border-radius:50%!important;border:2px solid #0F3460!important;box-shadow:0 0 clamp(15px,3vw,30px) rgba(15,52,96,0.4)!important;margin:3rem auto!important;display:block!important;transform:scale(2.5)!important;transform-origin:center!important;transition:transform 0.2s cubic-bezier(0.175,0.885,0.32,1.275),background-color 0.2s ease,box-shadow 0.2s ease!important}
-iframe[title*="audio_recorder"]:hover{transform:scale(2.7)!important;background-color:#16213E!important;box-shadow:0 0 clamp(20px,4vw,40px) rgba(15,52,96,0.6)!important}
-.stButton>button{background-color:#E60000!important;color:#fff!important;border-radius:0px!important;border:1px solid #FF4D4D!important;height:clamp(60px,10vh,90px);font-weight:800;font-size:clamp(1rem,2.5vw,1.2rem);letter-spacing:2px;text-transform:uppercase;margin-top:1rem}
+iframe[title*="audio_recorder"]{width:120px!important;height:120px!important;background-color:#1A1A2E!important;border-radius:50%!important;border:2px solid #0F3460!important;box-shadow:0 0 20px rgba(15,52,96,0.4)!important;margin:2rem auto!important;display:block!important;transition:transform 0.2s ease,background-color 0.2s ease!important}
+iframe[title*="audio_recorder"]:hover{transform:scale(1.05)!important;background-color:#16213E!important}
+div[data-testid="column"]{display:flex;justify-content:center;align-items:center}
+.stButton>button{background-color:#E60000!important;color:#fff!important;border-radius:0px!important;border:1px solid #FF4D4D!important;height:clamp(60px,10vh,90px);font-weight:800;font-size:clamp(1rem,2.5vw,1.2rem);letter-spacing:2px;text-transform:uppercase;margin-top:1rem;width:100%}
 .stButton>button:hover{background-color:#FF1A1A!important;border-color:#fff!important}
 </style>
 <script>
@@ -228,25 +228,33 @@ if audio_bytes:
     st.audio(audio_bytes, format="audio/wav")
     st.markdown("<br>", unsafe_allow_html=True)
     
+    # Check session state to prevent duplicate processing on generic reruns
+    if "last_processed_audio" not in st.session_state:
+        st.session_state.last_processed_audio = None
+
     if st.button(t['button'], type="primary", use_container_width=True):
-        with st.spinner("Processing..."):
-            try:
-                files = {"file": ("recording.wav", audio_bytes, "audio/wav")}
-                
-                response = requests.post(
-                    f"{BACKEND_URL}/api/v1/ingest/audio",
-                    files=files,
-                    timeout=API_TIMEOUT
-                )
-                
-                if response.status_code == 200:
-                    st.success(t['success'])
-                    st.json(response.json())
-                else:
-                    st.error(f"{t['error']}: {response.json().get('detail', 'Unknown Error')}")
+        if audio_bytes != st.session_state.last_processed_audio:
+            with st.spinner("Processing..."):
+                try:
+                    files = {"file": ("recording.wav", audio_bytes, "audio/wav")}
                     
-            except Exception as e:
-                st.error(f"Connection Failed: {e}")
+                    response = requests.post(
+                        f"{BACKEND_URL}/api/v1/ingest/audio",
+                        files=files,
+                        timeout=API_TIMEOUT
+                    )
+                    
+                    if response.status_code == 200:
+                        st.success(t['success'])
+                        st.json(response.json())
+                        st.session_state.last_processed_audio = audio_bytes
+                    else:
+                        st.error(f"{t['error']}: {response.json().get('detail', 'Unknown Error')}")
+                        
+                except Exception as e:
+                    st.error(f"Connection Failed: {e}")
+        else:
+            st.info("This audio request has already been processed.")
 
 # ==================== SIDEBAR INFO ====================
 with st.sidebar:
