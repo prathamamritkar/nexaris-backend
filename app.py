@@ -156,9 +156,8 @@ audio{filter:invert(1) hue-rotate(180deg) contrast(1.5);border-radius:0px;width:
 [data-testid="stAlert"]{background-color:#000000!important;border:2px solid #555555!important;border-radius:0px!important;color:#ffffff!important}
 [data-testid="stAlert"][data-baseweb="notification"]{border-left:6px solid #FF4500!important}
 [data-testid="stMarkdownContainer"]{text-align:center!important;width:100%}
-iframe[title*="audio_recorder"]{width:120px!important;height:120px!important;background-color:#1A1A2E!important;border-radius:50%!important;border:2px solid #0F3460!important;box-shadow:0 0 20px rgba(15,52,96,0.4)!important;margin:2rem auto!important;display:block!important;transition:transform 0.2s ease,background-color 0.2s ease!important}
-iframe[title*="audio_recorder"]:hover{transform:scale(1.05)!important;background-color:#16213E!important}
-div[data-testid="column"]{display:flex;justify-content:center;align-items:center}
+iframe[title*="audio_recorder"]{margin:2rem auto!important;display:block!important;transition:transform 0.2s ease!important; border-radius: 50% !important; box-shadow: 0 0 20px rgba(0,174,239,0.2) !important;}
+iframe[title*="audio_recorder"]:hover{transform:scale(1.1)!important; box-shadow: 0 0 30px rgba(0,174,239,0.4) !important;}
 .stButton>button{background-color:#E60000!important;color:#fff!important;border-radius:0px!important;border:1px solid #FF4D4D!important;height:clamp(60px,10vh,90px);font-weight:800;font-size:clamp(1rem,2.5vw,1.2rem);letter-spacing:2px;text-transform:uppercase;margin-top:1rem;width:100%}
 .stButton>button:hover{background-color:#FF1A1A!important;border-color:#fff!important}
 </style>
@@ -194,18 +193,21 @@ st.markdown(f"<div class='sub-header'>{t['subtitle']}</div>", unsafe_allow_html=
 st.components.v1.html("""
 <script>
 const observer=new MutationObserver(()=>{
-    window.parent.document.querySelectorAll('iframe').forEach(i=>{
-        if(!i.hasAttribute('loading'))i.setAttribute('loading','lazy');
-        if(i.title.includes('audio_recorder') && !i.dataset.a11y){
-            i.dataset.a11y="true";
-            try{
-                i.onload=()=>{
-                    const b=i.contentWindow.document.querySelector('button,svg');
-                    if(b&&!b.hasAttribute('aria-label'))b.setAttribute('aria-label','Start voice recording');
-                };
-            }catch(e){}
-        }
-    });
+    try {
+        window.parent.document.querySelectorAll('iframe').forEach(i=>{
+            if(!i.hasAttribute('loading')) i.setAttribute('loading','lazy');
+            if(i.title && i.title.includes('audio_recorder') && !i.dataset.a11y){
+                i.dataset.a11y="true";
+                // Do NOT override i.onload, it breaks Streamlit's ComponentRegistry
+                i.addEventListener('load', ()=>{
+                    try{
+                        const b=i.contentWindow.document.querySelector('button,svg');
+                        if(b&&!b.hasAttribute('aria-label')) b.setAttribute('aria-label','Start voice recording');
+                    }catch(e){}
+                });
+            }
+        });
+    } catch(e) {}
 });
 observer.observe(window.parent.document.body,{childList:true,subtree:true});
 </script>
@@ -221,7 +223,7 @@ with col2:
         recording_color="#FF4500", # Pulsating red icon when recording
         neutral_color="#00AEEF",   # Cyber-blue icon normally
         icon_name="microphone",
-        icon_size="3x"
+        icon_size="6x"
     )
 
 if audio_bytes:
