@@ -141,124 +141,47 @@ st.set_page_config(
 # Custom CSS for Modern UI
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;800&display=swap');
-    
-    html, body, [class*="css"] {
-        font-family: 'Space Grotesk', monospace;
-    }
-    
-    /* Force pure black background and neon accents */
-    .stApp { background-color: #050505; color: #ffffff; }
-    
-    /* Fix invisible text by explicitly coloring standard Streamlit typography */
-    h1, h2, h3, h4, h5, h6, p, span, label {
-        color: #ffffff !important;
-    }
-    
-    .main-header {
-        font-weight: 800;
-        font-size: clamp(1.8rem, 6vw, 3rem);
-        color: #ffffff !important;
-        margin-bottom: 0.2rem;
-        text-align: center;
-        text-transform: uppercase;
-        letter-spacing: clamp(2px, 1vw, 4px);
-    }
-    .sub-header {
-        font-weight: 600;
-        font-size: clamp(0.9rem, 3vw, 1.2rem);
-        color: #FF4500 !important;
-        margin-bottom: clamp(1.5rem, 4vh, 2.5rem);
-        text-align: center;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-    }
-    .block-container {
-        /* Apply the flat tactical design natively to the main Streamlit container */
-        background: #000000 !important;
-        border: 2px solid #333333 !important;
-        border-radius: 0px !important;
-        padding: clamp(1.5rem, 4vw, 3rem) !important;
-        max-width: 600px !important; /* Keep it compact and focused */
-        margin: clamp(1rem, 5vh, 4rem) auto !important; /* Proper browser margins */
-        text-align: center !important;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    /* Force the native audio player into tactical dark mode */
-    audio {
-        filter: invert(1) hue-rotate(180deg) contrast(1.5);
-        border-radius: 0px;
-        width: 100%;
-        margin-top: 2rem;
-    }
-    
-    /* Ensure the sidebar strictly follows the tactical flat theme */
-    [data-testid="stSidebar"] {
-        background-color: #050505 !important;
-        border-right: 2px solid #333333 !important;
-    }
-    
-    /* Force flat styling on Streamlit success/error alerts */
-    [data-testid="stAlert"] {
-        background-color: #000000 !important;
-        border: 2px solid #555555 !important;
-        border-radius: 0px !important;
-        color: #ffffff !important;
-    }
-    [data-testid="stAlert"][data-baseweb="notification"] {
-        /* If it's an error, use tactical red. If success, use tactical green */
-        border-left: 6px solid #FF4500 !important; 
-    }
-    
-    /* Center all subheaders and text */
-    [data-testid="stMarkdownContainer"] {
-        text-align: center !important;
-        width: 100%;
-    }
-    
-    /* Massive circular button styling for the Audio Recorder iframe */
-    iframe[title*="audio_recorder"] {
-        background-color: #E60000 !important;
-        border-radius: 50% !important;
-        border: 2px solid #FF4D4D !important;
-        box-shadow: 0 0 clamp(20px, 5vw, 40px) rgba(230, 0, 0, 0.4) !important;
-        margin: 3rem auto !important; /* Increased margin to compensate for visual scale overlap */
-        display: block !important;
-        /* Remove fixed width/height so the iframe perfectly wraps the clickable icon */
-        /* Instead, scale the entire iframe up. This scales the inner button too, making the 100% of the circle clickable! */
-        transform: scale(2.5) !important;
-        transform-origin: center !important;
-        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease !important;
-    }
-    
-    iframe[title*="audio_recorder"]:hover {
-        transform: scale(2.7) !important;
-        background-color: #FF1A1A !important;
-    }
-    
-    /* Make buttons massive, flat, and high-contrast */
-    .stButton>button {
-        background-color: #E60000 !important;
-        color: white !important;
-        border-radius: 0px !important; /* Hard edges = tactical feel */
-        border: 1px solid #FF4D4D !important;
-        height: clamp(60px, 10vh, 90px);
-        font-weight: 800;
-        font-size: clamp(1rem, 2.5vw, 1.2rem);
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        margin-top: 1rem;
-    }
-    .stButton>button:hover { 
-        background-color: #FF1A1A !important; 
-        border-color: white !important; 
-    }
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;800&display=swap');
+html,body,[class*="css"]{font-family:'Space Grotesk',monospace}
+.stApp{background-color:#050505;color:#ffffff}
+h1,h2,h3,h4,h5,h6,p,span,label{color:#ffffff!important}
+.main-header{font-weight:800;font-size:clamp(1.8rem,6vw,3rem);color:#ffffff!important;margin-bottom:0.2rem;text-align:center;text-transform:uppercase;letter-spacing:clamp(2px,1vw,4px)}
+.sub-header{font-weight:600;font-size:clamp(0.9rem,3vw,1.2rem);color:#E0E0E0!important;margin-bottom:clamp(1.5rem,4vh,2.5rem);text-align:center;text-transform:uppercase;letter-spacing:2px}
+.block-container{background:#000000!important;border:2px solid #333333!important;border-radius:0px!important;padding:clamp(1.5rem,4vw,3rem)!important;max-width:600px!important;margin:clamp(1rem,5vh,4rem) auto!important;text-align:center!important;display:flex;flex-direction:column;align-items:center;justify-content:center}
+audio{filter:invert(1) hue-rotate(180deg) contrast(1.5);border-radius:0px;width:100%;margin-top:2rem}
+[data-testid="stSidebar"]{background-color:#050505!important;border-right:2px solid #333333!important}
+div[data-testid="stMetric"]{align-items:flex-start!important}
+[data-testid="stMetricValue"]{font-size:1.2rem!important;text-align:left!important}
+[data-testid="stMetricLabel"]{font-size:0.9rem!important;text-align:left!important;opacity:0.8}
+[data-testid="stMetricDelta"]{text-align:left!important}
+[data-testid="stAlert"]{background-color:#000000!important;border:2px solid #555555!important;border-radius:0px!important;color:#ffffff!important}
+[data-testid="stAlert"][data-baseweb="notification"]{border-left:6px solid #FF4500!important}
+[data-testid="stMarkdownContainer"]{text-align:center!important;width:100%}
+iframe[title*="audio_recorder"]{background-color:#1A1A2E!important;border-radius:50%!important;border:2px solid #0F3460!important;box-shadow:0 0 clamp(15px,3vw,30px) rgba(15,52,96,0.4)!important;margin:3rem auto!important;display:block!important;transform:scale(2.5)!important;transform-origin:center!important;transition:transform 0.2s cubic-bezier(0.175,0.885,0.32,1.275),background-color 0.2s ease,box-shadow 0.2s ease!important}
+iframe[title*="audio_recorder"]:hover{transform:scale(2.7)!important;background-color:#16213E!important;box-shadow:0 0 clamp(20px,4vw,40px) rgba(15,52,96,0.6)!important}
+.stButton>button{background-color:#E60000!important;color:#fff!important;border-radius:0px!important;border:1px solid #FF4D4D!important;height:clamp(60px,10vh,90px);font-weight:800;font-size:clamp(1rem,2.5vw,1.2rem);letter-spacing:2px;text-transform:uppercase;margin-top:1rem}
+.stButton>button:hover{background-color:#FF1A1A!important;border-color:#fff!important}
 </style>
+<script>
+// accessibility and lazy load optimizations
+const observer=new MutationObserver(()=>{
+    document.querySelectorAll('iframe').forEach(i=>{
+        if(!i.hasAttribute('loading'))i.setAttribute('loading','lazy');
+        if(i.title.includes('audio_recorder') && !i.dataset.a11y){
+            i.dataset.a11y="true";
+            try{
+                i.onload=()=>{
+                    const b=i.contentWindow.document.querySelector('button,svg');
+                    if(b&&!b.hasAttribute('aria-label'))b.setAttribute('aria-label','Start voice recording');
+                };
+            }catch(e){}
+        }
+    });
+});
+observer.observe(document.body,{childList:true,subtree:true});
+</script>
 """, unsafe_allow_html=True)
+
 
 # Fetch localization context
 lang_code = get_browser_language()
@@ -268,6 +191,26 @@ t = TRANSLATIONS.get(lang_code, TRANSLATIONS['en'])
 st.markdown(f"<div class='main-header'>🛰️ {t['title']}</div>", unsafe_allow_html=True)
 st.markdown(f"<div class='sub-header'>{t['subtitle']}</div>", unsafe_allow_html=True)
 
+st.components.v1.html("""
+<script>
+const observer=new MutationObserver(()=>{
+    window.parent.document.querySelectorAll('iframe').forEach(i=>{
+        if(!i.hasAttribute('loading'))i.setAttribute('loading','lazy');
+        if(i.title.includes('audio_recorder') && !i.dataset.a11y){
+            i.dataset.a11y="true";
+            try{
+                i.onload=()=>{
+                    const b=i.contentWindow.document.querySelector('button,svg');
+                    if(b&&!b.hasAttribute('aria-label'))b.setAttribute('aria-label','Start voice recording');
+                };
+            }catch(e){}
+        }
+    });
+});
+observer.observe(window.parent.document.body,{childList:true,subtree:true});
+</script>
+""", height=0, width=0)
+
 st.subheader("🎙️ " + t['instructions'])
 
 # The Microphone Widget
@@ -275,8 +218,8 @@ col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     audio_bytes = audio_recorder(
         text="", 
-        recording_color="#ffffff", /* Pure white icon when recording */
-        neutral_color="#ffffff",   /* Pure white icon normally, to contrast the red iframe background */
+        recording_color="#FF4500", # Pulsating red icon when recording
+        neutral_color="#00AEEF",   # Cyber-blue icon normally
         icon_name="microphone",
         icon_size="3x"
     )
