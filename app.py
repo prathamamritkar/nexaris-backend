@@ -150,20 +150,25 @@ st.markdown("""
     /* Force pure black background and neon accents */
     .stApp { background-color: #050505; color: #ffffff; }
     
+    /* Fix invisible text by explicitly coloring standard Streamlit typography */
+    h1, h2, h3, h4, h5, h6, p, span, label {
+        color: #ffffff !important;
+    }
+    
     .main-header {
         font-weight: 800;
-        font-size: 2.5rem;
-        color: #ffffff;
+        font-size: clamp(1.8rem, 6vw, 3rem);
+        color: #ffffff !important;
         margin-bottom: 0.2rem;
         text-align: center;
         text-transform: uppercase;
-        letter-spacing: 4px;
+        letter-spacing: clamp(2px, 1vw, 4px);
     }
     .sub-header {
         font-weight: 600;
-        font-size: 1.1rem;
-        color: #FF4500;
-        margin-bottom: 2.5rem;
+        font-size: clamp(0.9rem, 3vw, 1.2rem);
+        color: #FF4500 !important;
+        margin-bottom: clamp(1.5rem, 4vh, 2.5rem);
         text-align: center;
         text-transform: uppercase;
         letter-spacing: 2px;
@@ -173,25 +178,44 @@ st.markdown("""
         background: #000000;
         border: 2px solid #333333;
         border-radius: 0px;
-        padding: 2.5rem;
+        padding: clamp(1.5rem, 4vw, 2.5rem);
         text-align: center;
         margin-bottom: 2rem;
     }
     
+    /* Massive circular button styling for the Audio Recorder iframe */
+    iframe[title*="audio_recorder"] {
+        background-color: #E60000 !important;
+        border-radius: 50% !important;
+        border: 2px solid #FF4D4D !important;
+        box-shadow: 0 0 clamp(20px, 5vw, 40px) rgba(230, 0, 0, 0.4) !important;
+        margin: 0 auto !important;
+        display: block !important;
+        width: clamp(100px, 25vw, 160px) !important;
+        height: clamp(100px, 25vw, 160px) !important;
+        transition: transform 0.2s ease;
+    }
+    
+    iframe[title*="audio_recorder"]:hover {
+        transform: scale(1.05);
+        background-color: #FF1A1A !important;
+    }
+    
     /* Make buttons massive, flat, and high-contrast */
     .stButton>button {
-        background-color: #E60000;
-        color: white;
-        border-radius: 0px; /* Hard edges = tactical feel */
-        border: 1px solid #FF4D4D;
-        height: 80px;
+        background-color: #E60000 !important;
+        color: white !important;
+        border-radius: 0px !important; /* Hard edges = tactical feel */
+        border: 1px solid #FF4D4D !important;
+        height: clamp(60px, 10vh, 90px);
         font-weight: 800;
+        font-size: clamp(1rem, 2.5vw, 1.2rem);
         letter-spacing: 2px;
         text-transform: uppercase;
     }
     .stButton>button:hover { 
-        background-color: #FF1A1A; 
-        border-color: white; 
+        background-color: #FF1A1A !important; 
+        border-color: white !important; 
     }
 </style>
 """, unsafe_allow_html=True)
