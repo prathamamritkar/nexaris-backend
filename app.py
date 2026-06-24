@@ -150,6 +150,13 @@ st.markdown("""
     /* Force pure black background and neon accents */
     .stApp { background-color: #050505; color: #ffffff; }
     
+    /* Remove Streamlit's default excessive top padding and center the main block */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 800px;
+    }
+    
     /* Fix invisible text by explicitly coloring standard Streamlit typography */
     h1, h2, h3, h4, h5, h6, p, span, label {
         color: #ffffff !important;
@@ -228,21 +235,16 @@ t = TRANSLATIONS.get(lang_code, TRANSLATIONS['en'])
 st.markdown(f"<div class='main-header'>🛰️ {t['title']}</div>", unsafe_allow_html=True)
 st.markdown(f"<div class='sub-header'>{t['subtitle']}</div>", unsafe_allow_html=True)
 
-st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-st.subheader("🎙️ " + t['instructions'])
+st.markdown("<div style='text-align: center; margin-bottom: 2rem;'><h3 style='color: #ffffff;'>🎙️ " + t['instructions'] + "</h3></div>", unsafe_allow_html=True)
 
-# The Microphone Widget
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    audio_bytes = audio_recorder(
+# The Microphone Widget - Centered via CSS (margin: 0 auto on the iframe)
+audio_bytes = audio_recorder(
         text="", 
         recording_color="#ff4b4b", 
         neutral_color="#8b949e",
         icon_name="microphone",
         icon_size="3x"
     )
-
-st.markdown("</div>", unsafe_allow_html=True)
 
 if audio_bytes:
     st.audio(audio_bytes, format="audio/wav")
