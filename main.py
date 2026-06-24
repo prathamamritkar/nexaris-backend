@@ -44,8 +44,6 @@ def get_db_driver():
                 settings.NEO4J_URI,
                 auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
                 connection_pool_size=settings.NEO4J_CONNECTION_POOL_SIZE,
-                encrypted=True,
-                trust="TRUST_SYSTEM_CA_SIGNED_CERTIFICATES",
             )
             driver.verify_connectivity()
             logger.info("✅ Connected to Neo4j database")

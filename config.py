@@ -23,21 +23,8 @@ class Settings:
     NEO4J_PASSWORD: str = os.getenv("NEO4J_PASSWORD", "").strip()
     NEO4J_CONNECTION_POOL_SIZE: int = int(os.getenv("NEO4J_CONNECTION_POOL_SIZE", "50"))
 
-    # Validate database configuration
-    if not all([NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD]):
-        raise ValueError(
-            "Missing required environment variables: NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD"
-        )
-
-    if NEO4J_PASSWORD == "password":
-        logger.warning(
-            "⚠️ WARNING: Using default Neo4j password. This is insecure in production."
-        )
-
     # ==================== API KEYS ====================
     SARVAM_API_KEY: str = os.getenv("SARVAM_API_KEY", "").strip()
-    if not SARVAM_API_KEY:
-        raise ValueError("SARVAM_API_KEY environment variable is required")
 
     # ==================== SECURITY ====================
     # CORS: Restrict to specific origins
@@ -75,12 +62,18 @@ class Settings:
     @classmethod
     def validate_all(cls) -> bool:
         """Validates all critical configuration"""
-        required_keys = ["NEO4J_URI", "NEO4J_USER", "NEO4J_PASSWORD", "SARVAM_API_KEY"]
+        required_keys = ["NEO4J_URI", "NEO4J_USER", "NEO4J_PASSWORD"]
         missing = [key for key in required_keys if not os.getenv(key)]
 
         if missing:
             logger.error(f"Missing critical environment variables: {', '.join(missing)}")
             return False
+
+        if os.getenv("NEO4J_PASSWORD") == "password":
+            logger.warning("⚠️ WARNING: Using default Neo4j password. Insecure in production.")
+
+        if not os.getenv("SARVAM_API_KEY"):
+            logger.warning("⚠️ SARVAM_API_KEY not set — audio transcription endpoint will be unavailable.")
 
         if len(cls.CORS_ORIGINS) == 0:
             logger.error("CORS_ORIGINS must contain at least one origin")
