@@ -4,7 +4,7 @@ Secure interface for submitting resource requests to the NEXARIS backend
 import streamlit as st
 import requests
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from audio_recorder_streamlit import audio_recorder
 
@@ -195,7 +195,7 @@ t = TRANSLATIONS.get(lang_code, TRANSLATIONS['en'])
 st.markdown(f"<div class='main-header'>🛰️ {t['title']}</div>", unsafe_allow_html=True)
 st.markdown(f"<div class='sub-header'>{t['subtitle']}</div>", unsafe_allow_html=True)
 
-st.components.v1.html("""
+st.html("""
 <script>
 const observer=new MutationObserver(()=>{
     try {
@@ -216,7 +216,7 @@ const observer=new MutationObserver(()=>{
 });
 observer.observe(window.parent.document.body,{childList:true,subtree:true});
 </script>
-""", height=0, width=0)
+""")
 
 st.subheader("🎙️ " + t['instructions'])
 
@@ -276,7 +276,7 @@ with st.sidebar:
     )
     
     st.metric("System Language", lang_code.upper())
-    st.metric("Timestamp (UTC)", datetime.utcnow().strftime("%H:%M:%S"))
+    st.metric("Timestamp (UTC)", datetime.now(timezone.utc).strftime("%H:%M:%S"))
 
     st.markdown("---")
     st.markdown(

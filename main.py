@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, File, UploadFile, Depends, Security, Header
@@ -152,14 +152,14 @@ class SuccessResponse(BaseModel):
     """Standard success response"""
     status: str = "success"
     message: str
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class ErrorResponse(BaseModel):
     """Standard error response (no internal details leaked)"""
     status: str = "error"
     message: str
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 # ==================== DATABASE UTILITIES ====================
@@ -188,6 +188,44 @@ def run_cypher(query: str, **parameters) -> Optional[list]:
 
 
 # ==================== CORE API ENDPOINTS ====================
+def _ingest_to_db(req: ResourceRequest, created_by: str) -> None:
+    query = """
+    MERGE (c:Citizen {id: $citizen_id})
+    MERGE (r:Resource {type: $item})
+    MERGE (c)-[:NEEDS {
+        intent: $intent,
+        urgency: $urgency,
+        location: $location_context,
+        status: 'PENDING',
+        timestamp: $timestamp,
+        created_by: $created_by
+    }]->(r)
+    RETURN c.id as citizen_id, r.type as resource_type
+    """
+    run_cypher(
+        query,
+        citizen_id=req.citizen_id,
+        intent=req.intent,
+        item=req.item,
+        urgency=req.urgency,
+        location_context=req.location_context,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        created_by=created_by
+    )
+
+def _sweep_stale_requests() -> int:
+    stale_cutoff = (datetime.now(timezone.utc) - timedelta(minutes=settings.PSA_STALE_THRESHOLD_MINUTES)).isoformat()
+    sweep_query = """
+    MATCH (c:Citizen)-[r:NEEDS]->(res:Resource)
+    WHERE r.status = 'PENDING' AND r.timestamp < $stale_cutoff
+    SET r.status = 'STALE',
+        r.escalation_timestamp = $now,
+        r.escalation_reason = 'Timeout: Request pending too long'
+    RETURN count(r) AS stale_count
+    """
+    results = run_cypher(sweep_query, stale_cutoff=stale_cutoff, now=datetime.now(timezone.utc).isoformat())
+    return results[0].get("stale_count", 0) if results else 0
+
 @app.get("/")
 async def root():
     return {"name": "NEXARIS Topological Engine", "version": "2.0.0", "status": "operational", "docs": "/docs"}
@@ -199,7 +237,7 @@ async def health_check():
     try:
         if driver:
             driver.verify_connectivity()
-        return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+        return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return JSONResponse(
@@ -215,30 +253,7 @@ async def ingest_resource_request(req: ResourceRequest):
     CRITICAL: Input validation happens via Pydantic validators
     """
     try:
-        query = """
-        MERGE (c:Citizen {id: $citizen_id})
-        MERGE (r:Resource {type: $item})
-        MERGE (c)-[:NEEDS {
-            intent: $intent,
-            urgency: $urgency,
-            location: $location_context,
-            status: 'PENDING',
-            timestamp: $timestamp,
-            created_by: 'ingest_api_v1'
-        }]->(r)
-        RETURN c.id as citizen_id, r.type as resource_type
-        """
-
-        results = run_cypher(
-            query,
-            citizen_id=req.citizen_id,
-            intent=req.intent,
-            item=req.item,
-            urgency=req.urgency,
-            location_context=req.location_context,
-            timestamp=datetime.utcnow().isoformat(),
-        )
-
+        _ingest_to_db(req, created_by='ingest_api_v1')
         logger.info(f"✅ Resource request ingested: citizen={req.citizen_id}, item={req.item}, urgency={req.urgency}")
 
         return SuccessResponse(message="Resource request successfully mapped to topological network")
@@ -269,7 +284,7 @@ async def migrate_relationships():
         RETURN count(n) AS updated_count
         """
 
-        results = run_cypher(query, now=datetime.utcnow().isoformat())
+        results = run_cypher(query, now=datetime.now(timezone.utc).isoformat())
         updated_count = results[0].get("updated_count", 0) if results else 0
 
         logger.info(f"Migration completed: {updated_count} relationships updated")
@@ -306,7 +321,7 @@ async def get_graph_state(x_admin_key: str = Header(None)):
         return {
             "network_state": results,
             "total_records": len(results),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
         logger.error(f"Graph state query failed: {e}")
@@ -329,20 +344,7 @@ async def manual_psa_sweep(api_key: str = Depends(verify_cron_key)):
     Hit this via GitHub Actions every 5 minutes.
     """
     try:
-        stale_cutoff = (datetime.utcnow() - timedelta(minutes=settings.PSA_STALE_THRESHOLD_MINUTES)).isoformat()
-        
-        sweep_query = """
-        MATCH (c:Citizen)-[r:NEEDS]->(res:Resource)
-        WHERE r.status = 'PENDING' AND r.timestamp < $stale_cutoff
-        SET r.status = 'STALE',
-            r.escalation_timestamp = $now,
-            r.escalation_reason = 'Timeout: Request pending too long'
-        RETURN count(r) AS stale_count
-        """
-        
-        results = run_cypher(sweep_query, stale_cutoff=stale_cutoff, now=datetime.utcnow().isoformat())
-        stale_count = results[0].get("stale_count", 0) if results else 0
-        
+        stale_count = _sweep_stale_requests()
         return {"status": "success", "stale_records_updated": stale_count}
     except Exception as e:
         logger.error(f"Cron sweep failed: {e}")
@@ -360,31 +362,9 @@ async def perpetual_state_agent_loop():
     while True:
         try:
             logger.info("PSA: Commencing graph topology sweep...")
+            stale_count = _sweep_stale_requests()
 
-            # Calculate stale cutoff with UTC timezone
-            stale_cutoff = (
-                datetime.utcnow() - timedelta(minutes=settings.PSA_STALE_THRESHOLD_MINUTES)
-            ).isoformat()
-
-            # Query for stale PENDING requests
-            sweep_query = """
-            MATCH (c:Citizen)-[r:NEEDS]->(res:Resource)
-            WHERE r.status = 'PENDING' AND r.timestamp < $stale_cutoff
-            SET r.status = 'STALE',
-                r.escalation_timestamp = $now,
-                r.escalation_reason = 'Timeout: Request pending too long'
-            RETURN count(r) AS stale_count
-            """
-
-            results = run_cypher(
-                sweep_query,
-                stale_cutoff=stale_cutoff,
-                now=datetime.utcnow().isoformat(),
-            )
-
-            if results:
-                stale_count = results[0].get("stale_count", 0)
-                if stale_count > 0:
+            if stale_count > 0:
                     logger.warning(f"⚠️  PSA Alert: {stale_count} requests marked STALE - escalation triggered")
                 else:
                     logger.debug("✅ PSA: All requests within normal parameters")
@@ -457,28 +437,16 @@ async def process_vernacular_audio(file: UploadFile = File(...)):
                 "entities": extracted_entities
             }
             
-            # Step 3: Automatically ingest this into the Topological Graph (Neo4j)
-            # Instead of just returning the data, we actually trigger the DB mapping
-            ingest_query = """
-            MERGE (c:Citizen {id: $citizen_id})
-            MERGE (r:Resource {type: $item})
-            MERGE (c)-[:NEEDS {
-                intent: 'RESOURCE_REQUEST',
-                urgency: $urgency,
-                location: $location,
-                status: 'PENDING',
-                timestamp: $timestamp,
-                created_by: 'v2v_audio_bridge'
-            }]->(r)
-            """
-            run_cypher(
-                ingest_query,
-                citizen_id=f"voice_node_{int(datetime.utcnow().timestamp())}",
+            req = ResourceRequest(
+                citizen_id=f"voice_node_{int(datetime.now(timezone.utc).timestamp())}",
+                intent="RESOURCE_REQUEST",
                 item=extracted_entities["item"],
                 urgency=extracted_entities["urgency"],
-                location=extracted_entities["location_context"],
-                timestamp=datetime.utcnow().isoformat()
+                location_context=extracted_entities["location_context"]
             )
+            
+            # Step 3: Automatically ingest this into the Topological Graph (Neo4j)
+            _ingest_to_db(req, created_by='v2v_audio_bridge')
 
             logger.info("Acoustic pipeline processed and mapped to T-Core successfully.")
 
@@ -486,7 +454,7 @@ async def process_vernacular_audio(file: UploadFile = File(...)):
                 "status": "success",
                 "message": "Audio processed and mapped to topological network",
                 "structured_payload": structured_payload,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         except requests.RequestException as e:
@@ -509,7 +477,7 @@ async def validation_exception_handler(request, exc):
     """Handle validation errors securely"""
     return JSONResponse(
         status_code=400,
-        content={"status": "error", "message": str(exc), "timestamp": datetime.utcnow().isoformat()},
+        content={"status": "error", "message": str(exc), "timestamp": datetime.now(timezone.utc).isoformat()},
     )
 
 
@@ -522,6 +490,6 @@ async def general_exception_handler(request, exc):
         content={
             "status": "error",
             "message": "An unexpected error occurred. Please try again later.",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         },
     )
