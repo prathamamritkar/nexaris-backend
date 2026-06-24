@@ -6,6 +6,10 @@ import os
 from typing import Optional
 from functools import lru_cache
 import logging
+from dotenv import load_dotenv
+
+# Load variables from .env if present
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
