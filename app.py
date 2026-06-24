@@ -157,6 +157,8 @@ audio{filter:invert(1) hue-rotate(180deg) contrast(1.5);border-radius:8px;width:
 [data-testid="stAlert"]{background-color:#0d0d0d!important;border:2px solid #555555!important;border-radius:10px!important;color:#ffffff!important}
 [data-testid="stAlert"][data-baseweb="notification"]{border-left:6px solid #FF4500!important;border-radius:10px!important}
 .block-container [data-testid="stMarkdownContainer"]{text-align:center!important;width:100%}
+.mic-label{text-align:center;font-size:clamp(0.85rem,2.5vw,1rem);color:#A0A0A0!important;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:1.2rem}
+[data-testid="stColumn"]{display:flex;justify-content:center;align-items:center}
 .stButton>button{background:linear-gradient(135deg,#C00000 0%,#E60000 60%,#FF2200 100%)!important;color:#ffffff!important;border-radius:10px!important;border:1.5px solid #FF4D4D!important;height:clamp(60px,10vh,90px);font-weight:800;font-size:clamp(1rem,2.5vw,1.2rem);letter-spacing:3px;text-transform:uppercase;margin-top:1rem;width:100%;box-shadow:0 4px 20px rgba(230,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.08);transition:all 0.18s cubic-bezier(0.4,0,0.2,1)}
 .stButton>button:hover{background:linear-gradient(135deg,#E60000 0%,#FF2200 60%,#FF4500 100%)!important;border-color:#FF7755!important;border-radius:10px!important;box-shadow:0 6px 28px rgba(255,69,0,0.5),inset 0 1px 0 rgba(255,255,255,0.12)!important;transform:translateY(-2px)}
 .stButton>button:active{background:linear-gradient(135deg,#990000 0%,#CC0000 100%)!important;border-color:#FF4D4D!important;border-radius:10px!important;box-shadow:0 2px 8px rgba(200,0,0,0.4)!important;transform:translateY(0px)}
@@ -167,22 +169,37 @@ audio{filter:invert(1) hue-rotate(180deg) contrast(1.5);border-radius:8px;width:
 [data-testid="stSpinner"] svg circle{stroke:#FF4500!important}
 </style>
 <script>
-// accessibility and lazy load optimizations
-const observer=new MutationObserver(()=>{
+const injectMicStyle=()=>{
     document.querySelectorAll('iframe').forEach(i=>{
         if(!i.hasAttribute('loading'))i.setAttribute('loading','lazy');
-        if(i.title.includes('audio_recorder') && !i.dataset.a11y){
-            i.dataset.a11y="true";
-            try{
-                i.onload=()=>{
-                    const b=i.contentWindow.document.querySelector('button,svg');
+        if(i.title&&i.title.includes('audio_recorder')&&!i.dataset.styled){
+            i.dataset.styled="true";
+            const apply=()=>{
+                try{
+                    const doc=i.contentWindow.document;
+                    if(!doc.getElementById('nx-mic-css')){
+                        const s=doc.createElement('style');
+                        s.id='nx-mic-css';
+                        s.textContent=`
+                            button{width:72px!important;height:72px!important;border-radius:50%!important;border:2.5px solid #00AEEF!important;background:#0a0a0a!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;transition:all 0.2s ease!important;box-shadow:0 0 0 0 rgba(0,174,239,0.4)!important;animation:micPulse 2.5s infinite!important}
+                            button:hover{border-color:#00D4FF!important;box-shadow:0 0 16px rgba(0,174,239,0.6)!important}
+                            @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,174,239,0.4)}50%{box-shadow:0 0 0 10px rgba(0,174,239,0)}}
+                            svg{color:#00AEEF!important;fill:#00AEEF!important}
+                        `;
+                        doc.head.appendChild(s);
+                    }
+                    const b=doc.querySelector('button');
                     if(b&&!b.hasAttribute('aria-label'))b.setAttribute('aria-label','Start voice recording');
-                };
-            }catch(e){}
+                }catch(e){}
+            };
+            i.addEventListener('load',apply);
+            apply();
         }
     });
-});
-observer.observe(document.body,{childList:true,subtree:true});
+};
+const obs=new MutationObserver(injectMicStyle);
+obs.observe(document.body,{childList:true,subtree:true});
+injectMicStyle();
 </script>
 """, unsafe_allow_html=True)
 
@@ -218,10 +235,10 @@ observer.observe(window.parent.document.body,{childList:true,subtree:true});
 </script>
 """, height=0, width=0)
 
-st.subheader("🎙️ " + t['instructions'])
+st.markdown(f"<div class='mic-label'>🎙️ &nbsp;{t['instructions']}</div>", unsafe_allow_html=True)
 
-# The Microphone Widget
-col1, col2, col3 = st.columns([4, 1, 4])
+# The Microphone Widget — wide enough center column for 72px circular button
+col1, col2, col3 = st.columns([3, 2, 3])
 with col2:
     audio_bytes = audio_recorder(
         text="", 
