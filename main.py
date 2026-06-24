@@ -187,6 +187,11 @@ def run_cypher(query: str, **parameters) -> Optional[list]:
 
 
 # ==================== CORE API ENDPOINTS ====================
+@app.get("/")
+async def root():
+    return {"name": "NEXARIS Topological Engine", "version": "2.0.0", "status": "operational", "docs": "/docs"}
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
