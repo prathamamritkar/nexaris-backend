@@ -1,0 +1,17 @@
+name: Perpetual State Agent (Cron Sweep)
+
+# Runs every 5 minutes, completely free on GitHub infrastructure
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Allows you to run it manually from GitHub UI
+
+jobs:
+  trigger-sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fire Secure POST Request to NEXARIS Engine
+        run: |
+          curl -X POST ${{ secrets.RENDER_WEB_URL }}/api/v1/admin/trigger-sweep \
+          -H "X-Cron-Signature: ${{ secrets.CRON_SECRET_KEY }}" \
+          -H "Content-Type: application/json"

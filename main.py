@@ -4,12 +4,14 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, File, UploadFile, Depends
+from fastapi import FastAPI, HTTPException, File, UploadFile, Depends, Security
+from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from neo4j import GraphDatabase, exceptions as neo4j_exceptions
 from pydantic import BaseModel, Field, validator
 import requests
+import os
 
 from config import settings
 from validators import (
@@ -301,6 +303,41 @@ async def get_graph_state():
         logger.error(f"Graph state query failed: {e}")
         raise HTTPException(status_code=500, detail="Could not retrieve graph state")
 
+
+# ==================== ADMIN ENDPOINTS ====================
+CRON_SECRET_KEY = os.getenv("CRON_SECRET_KEY", "generate_a_long_random_string_here")
+api_key_header = APIKeyHeader(name="X-Cron-Signature", auto_error=True)
+
+async def verify_cron_key(api_key: str = Security(api_key_header)):
+    if api_key != CRON_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Invalid Cron Signature")
+    return api_key
+
+@app.post("/api/v1/admin/trigger-sweep", include_in_schema=False)
+async def manual_psa_sweep(api_key: str = Depends(verify_cron_key)):
+    """
+    Serverless endpoint to trigger the PSA sweep. 
+    Hit this via GitHub Actions every 5 minutes.
+    """
+    try:
+        stale_cutoff = (datetime.utcnow() - timedelta(minutes=settings.PSA_STALE_THRESHOLD_MINUTES)).isoformat()
+        
+        sweep_query = """
+        MATCH (c:Citizen)-[r:NEEDS]->(res:Resource)
+        WHERE r.status = 'PENDING' AND r.timestamp < $stale_cutoff
+        SET r.status = 'STALE',
+            r.escalation_timestamp = $now,
+            r.escalation_reason = 'Timeout: Request pending too long'
+        RETURN count(r) AS stale_count
+        """
+        
+        results = run_cypher(sweep_query, stale_cutoff=stale_cutoff, now=datetime.utcnow().isoformat())
+        stale_count = results[0].get("stale_count", 0) if results else 0
+        
+        return {"status": "success", "stale_records_updated": stale_count}
+    except Exception as e:
+        logger.error(f"Cron sweep failed: {e}")
+        raise HTTPException(status_code=500, detail="Sweep failed")
 
 # ==================== BACKGROUND AGENT ====================
 async def perpetual_state_agent_loop():
