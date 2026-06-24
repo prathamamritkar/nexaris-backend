@@ -6,7 +6,7 @@ import requests
 import os
 from datetime import datetime
 import logging
-from audio_recorder_streamlit import audio_recorder
+
 
 logger = logging.getLogger(__name__)
 
@@ -157,50 +157,8 @@ audio{filter:invert(1) hue-rotate(180deg) contrast(1.5);border-radius:8px;width:
 [data-testid="stAlert"]{background-color:#0d0d0d!important;border:2px solid #555555!important;border-radius:10px!important;color:#ffffff!important}
 [data-testid="stAlert"][data-baseweb="notification"]{border-left:6px solid #FF4500!important;border-radius:10px!important}
 .block-container [data-testid="stMarkdownContainer"]{text-align:center!important;width:100%}
-.mic-label{text-align:center;font-size:clamp(0.85rem,2.5vw,1rem);color:#A0A0A0!important;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:1.2rem}
-[data-testid="stColumn"]{display:flex;justify-content:center;align-items:center}
-.stButton>button{background:linear-gradient(135deg,#C00000 0%,#E60000 60%,#FF2200 100%)!important;color:#ffffff!important;border-radius:10px!important;border:1.5px solid #FF4D4D!important;height:clamp(60px,10vh,90px);font-weight:800;font-size:clamp(1rem,2.5vw,1.2rem);letter-spacing:3px;text-transform:uppercase;margin-top:1rem;width:100%;box-shadow:0 4px 20px rgba(230,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.08);transition:all 0.18s cubic-bezier(0.4,0,0.2,1)}
-.stButton>button:hover{background:linear-gradient(135deg,#E60000 0%,#FF2200 60%,#FF4500 100%)!important;border-color:#FF7755!important;border-radius:10px!important;box-shadow:0 6px 28px rgba(255,69,0,0.5),inset 0 1px 0 rgba(255,255,255,0.12)!important;transform:translateY(-2px)}
-.stButton>button:active{background:linear-gradient(135deg,#990000 0%,#CC0000 100%)!important;border-color:#FF4D4D!important;border-radius:10px!important;box-shadow:0 2px 8px rgba(200,0,0,0.4)!important;transform:translateY(0px)}
-.stButton>button:focus:not(:active){border-color:#FF7755!important;border-radius:10px!important;box-shadow:0 0 0 3px rgba(255,69,0,0.25),0 4px 20px rgba(230,0,0,0.35)!important;outline:none!important}
-.stButton>button[kind="secondary"]{background:transparent!important;border:1.5px solid #444!important;border-radius:10px!important;color:#ccc!important;box-shadow:none!important}
-.stButton>button[kind="secondary"]:hover{border-color:#888!important;color:#fff!important;background:#111!important}
-[data-testid="stSpinner"]{border-radius:10px!important}
 [data-testid="stSpinner"] svg circle{stroke:#FF4500!important}
 </style>
-<script>
-const injectMicStyle=()=>{
-    document.querySelectorAll('iframe').forEach(i=>{
-        if(!i.hasAttribute('loading'))i.setAttribute('loading','lazy');
-        if(i.title&&i.title.includes('audio_recorder')&&!i.dataset.styled){
-            i.dataset.styled="true";
-            const apply=()=>{
-                try{
-                    const doc=i.contentWindow.document;
-                    if(!doc.getElementById('nx-mic-css')){
-                        const s=doc.createElement('style');
-                        s.id='nx-mic-css';
-                        s.textContent=`
-                            button{width:72px!important;height:72px!important;border-radius:50%!important;border:2.5px solid #00AEEF!important;background:#0a0a0a!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;transition:all 0.2s ease!important;box-shadow:0 0 0 0 rgba(0,174,239,0.4)!important;animation:micPulse 2.5s infinite!important}
-                            button:hover{border-color:#00D4FF!important;box-shadow:0 0 16px rgba(0,174,239,0.6)!important}
-                            @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,174,239,0.4)}50%{box-shadow:0 0 0 10px rgba(0,174,239,0)}}
-                            svg{color:#00AEEF!important;fill:#00AEEF!important}
-                        `;
-                        doc.head.appendChild(s);
-                    }
-                    const b=doc.querySelector('button');
-                    if(b&&!b.hasAttribute('aria-label'))b.setAttribute('aria-label','Start voice recording');
-                }catch(e){}
-            };
-            i.addEventListener('load',apply);
-            apply();
-        }
-    });
-};
-const obs=new MutationObserver(injectMicStyle);
-obs.observe(document.body,{childList:true,subtree:true});
-injectMicStyle();
-</script>
 """, unsafe_allow_html=True)
 
 
@@ -212,73 +170,120 @@ t = TRANSLATIONS.get(lang_code, TRANSLATIONS['en'])
 st.markdown(f"<div class='main-header'>🛰️ {t['title']}</div>", unsafe_allow_html=True)
 st.markdown(f"<div class='sub-header'>{t['subtitle']}</div>", unsafe_allow_html=True)
 
-st.components.v1.html("""
+
+
+
+st.components.v1.html(f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;800&display=swap');
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  body{{background:transparent;font-family:'Space Grotesk',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;gap:16px}}
+  #mic-btn{{
+    width:84px;height:84px;
+    border-radius:50%;
+    border:2.5px solid #00AEEF;
+    background:#080808;
+    font-size:2.2rem;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:border-color 0.3s ease,background 0.3s ease;
+    animation:idlePulse 2.8s ease-in-out infinite;
+    outline:none;
+    user-select:none;
+  }}
+  #mic-btn.recording{{
+    border-color:#FF4500;
+    background:#1a0500;
+    animation:recPulse 0.85s ease-in-out infinite;
+  }}
+  #mic-btn:hover:not(.recording){{
+    border-color:#00D4FF;
+    background:#05121a;
+  }}
+  @keyframes idlePulse{{
+    0%,100%{{box-shadow:0 0 0 0 rgba(0,174,239,0),0 0 8px rgba(0,174,239,0.15)}}
+    50%{{box-shadow:0 0 0 12px rgba(0,174,239,0),0 0 22px rgba(0,174,239,0.6)}}
+  }}
+  @keyframes recPulse{{
+    0%,100%{{box-shadow:0 0 0 0 rgba(255,69,0,0),0 0 10px rgba(255,69,0,0.35)}}
+    50%{{box-shadow:0 0 0 18px rgba(255,69,0,0),0 0 34px rgba(255,69,0,0.95)}}
+  }}
+  #status{{font-size:0.72rem;letter-spacing:2px;text-transform:uppercase;color:#555;text-align:center;min-height:1.2em;transition:color 0.3s}}
+  #status.rec{{color:#FF4500}}
+  #status.ok{{color:#00AEEF}}
+  #status.err{{color:#FF4D4D}}
+  #result{{font-size:0.7rem;color:#888;max-width:340px;word-break:break-all;text-align:center;display:none;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:8px;padding:8px 12px;margin-top:4px}}
+</style>
+</head>
+<body>
+<button id="mic-btn" aria-label="{t['instructions']}">🎤</button>
+<div id="status">{t['instructions']}</div>
+<div id="result"></div>
 <script>
-const observer=new MutationObserver(()=>{
-    try {
-        window.parent.document.querySelectorAll('iframe').forEach(i=>{
-            if(!i.hasAttribute('loading')) i.setAttribute('loading','lazy');
-            if(i.title && i.title.includes('audio_recorder') && !i.dataset.a11y){
-                i.dataset.a11y="true";
-                // Do NOT override i.onload, it breaks Streamlit's ComponentRegistry
-                i.addEventListener('load', ()=>{
-                    try{
-                        const b=i.contentWindow.document.querySelector('button,svg');
-                        if(b&&!b.hasAttribute('aria-label')) b.setAttribute('aria-label','Start voice recording');
-                    }catch(e){}
-                });
-            }
-        });
-    } catch(e) {}
-});
-observer.observe(window.parent.document.body,{childList:true,subtree:true});
+const btn=document.getElementById('mic-btn');
+const status=document.getElementById('status');
+const result=document.getElementById('result');
+const BACKEND='{BACKEND_URL}';
+let recorder,chunks=[],isRecording=false;
+
+btn.addEventListener('click',async()=>{{
+  if(!isRecording){{
+    try{{
+      const stream=await navigator.mediaDevices.getUserMedia({{audio:true}});
+      recorder=new MediaRecorder(stream);
+      chunks=[];
+      recorder.ondataavailable=e=>chunks.push(e.data);
+      recorder.onstop=async()=>{{
+        stream.getTracks().forEach(t=>t.stop());
+        status.textContent='Sending...';
+        status.className='';
+        result.style.display='none';
+        try{{
+          const blob=new Blob(chunks,{{type:'audio/wav'}});
+          const fd=new FormData();
+          fd.append('file',blob,'recording.wav');
+          const res=await fetch(BACKEND+'/api/v1/ingest/audio',{{method:'POST',body:fd}});
+          const data=await res.json();
+          if(res.ok){{
+            status.textContent='{t["success"]}';
+            status.className='ok';
+            result.textContent=JSON.stringify(data,null,2);
+            result.style.display='block';
+          }}else{{
+            status.textContent='{t["error"]}: '+(data.detail||res.status);
+            status.className='err';
+          }}
+        }}catch(e){{
+          status.textContent='{t["error"]}: Offline';
+          status.className='err';
+        }}
+        setTimeout(()=>{{status.textContent='{t["instructions"]}';status.className='';result.style.display='none';}},4000);
+      }};
+      recorder.start();
+      isRecording=true;
+      btn.classList.add('recording');
+      status.textContent='Recording...';
+      status.className='rec';
+    }}catch(e){{
+      status.textContent='Mic access denied';
+      status.className='err';
+    }}
+  }}else{{
+    recorder.stop();
+    isRecording=false;
+    btn.classList.remove('recording');
+    status.textContent='Processing...';
+    status.className='';
+  }}
+}});
 </script>
-""", height=0, width=0)
-
-st.markdown(f"<div class='mic-label'>🎙️ &nbsp;{t['instructions']}</div>", unsafe_allow_html=True)
-
-# The Microphone Widget — wide enough center column for 72px circular button
-col1, col2, col3 = st.columns([3, 2, 3])
-with col2:
-    audio_bytes = audio_recorder(
-        text="", 
-        recording_color="#FF4500", # Pulsating red icon when recording
-        neutral_color="#00AEEF",   # Cyber-blue icon normally
-        icon_name="microphone",
-        icon_size="4x"
-    )
-
-if audio_bytes:
-    st.audio(audio_bytes, format="audio/wav")
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Check session state to prevent duplicate processing on generic reruns
-    if "last_processed_audio" not in st.session_state:
-        st.session_state.last_processed_audio = None
-
-    if st.button(t['button'], type="primary", use_container_width=True):
-        if audio_bytes != st.session_state.last_processed_audio:
-            with st.spinner("Processing..."):
-                try:
-                    files = {"file": ("recording.wav", audio_bytes, "audio/wav")}
-                    
-                    response = requests.post(
-                        f"{BACKEND_URL}/api/v1/ingest/audio",
-                        files=files,
-                        timeout=API_TIMEOUT
-                    )
-                    
-                    if response.status_code == 200:
-                        st.success(t['success'])
-                        st.json(response.json())
-                        st.session_state.last_processed_audio = audio_bytes
-                    else:
-                        st.error(f"{t['error']}: {response.json().get('detail', 'Unknown Error')}")
-                        
-                except Exception as e:
-                    st.error(f"Connection Failed: {e}")
-        else:
-            st.info("This audio request has already been processed.")
+</body>
+</html>
+""", height=280, scrolling=False)
 
 # ==================== SIDEBAR INFO ====================
 with st.sidebar:
