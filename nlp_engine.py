@@ -1,64 +1,128 @@
 import re
+import logging
+from typing import Dict, Any, List, Pattern
+
+logger = logging.getLogger(__name__)
 
 class VernacularParser:
-    def __init__(self):
+    """
+    An elite, deterministic NLP parser designed to reliably extract intent, resource types,
+    urgency levels, and location context from mixed-language vernacular transcripts.
+    Optimized for zero-dependency execution with O(1) matching via precompiled regex schemas.
+    """
+    
+    def __init__(self) -> None:
         # Maps domain vocab (English + Romanized Indic) to exact DB parameters
-        self.urgency_map = {
-            "CRITICAL": ["dying", "fatal", "critical", "emergency", "immediately", "urgent", "asap", "sakh", "turant"],
-            "HIGH": ["high", "need", "fast", "quick", "soon", "jaldi", "zaruri"],
-            "MEDIUM": ["medium", "moderate", "normal", "required", "chahiye"],
-            "LOW": ["low", "whenever", "later", "stock", "baad"]
+        raw_urgency_map: Dict[str, List[str]] = {
+            "CRITICAL": ["dying", "fatal", "critical", "emergency", "immediately", "urgent", "asap", "sakht", "turant", "bachao", "maut"],
+            "HIGH": ["high", "need", "fast", "quick", "soon", "jaldi", "zaruri", "avashyak", "zaroorat"],
+            "MEDIUM": ["medium", "moderate", "normal", "required", "chahiye", "mangta"],
+            "LOW": ["low", "whenever", "later", "stock", "baad", "fursat"]
         }
         
-        self.item_map = {
-            "Blood Pack": ["blood", "blood pack", "khoon", "plasma"],
-            "Insulin": ["insulin", "diabetes", "sugar"],
-            "Oxygen Cylinder": ["oxygen", "cylinder", "breath", "o2", "saans"],
-            "Clean Water": ["water", "pani", "drinking", "clean water"],
-            "Medicines": ["medicine", "dawai", "drugs", "pills", "meds", "paracetamol"],
-            "Vaccines": ["vaccine", "injection", "teeka"],
-            "Food Supplies": ["food", "ration", "khana", "supplies", "meal", "bhookh"],
-            "First Aid Kit": ["first aid", "bandage", "patti", "medical kit", "injury"]
+        raw_item_map: Dict[str, List[str]] = {
+            "Blood Pack": ["blood pack", "blood", "khoon", "plasma", "rakta", "bleeding"],
+            "Insulin": ["insulin", "diabetes", "sugar", "madhumeh"],
+            "Oxygen Cylinder": ["oxygen cylinder", "oxygen", "cylinder", "breath", "o2", "saans", "hawa"],
+            "Clean Water": ["clean water", "water", "pani", "drinking", "peene ka", "jal"],
+            "Medicines": ["medicine", "medicines", "dawai", "dawa", "drugs", "pills", "meds", "paracetamol", "antibiotic", "goli"],
+            "Vaccines": ["vaccine", "vaccines", "injection", "teeka", "suiee", "sui"],
+            "Food Supplies": ["food supplies", "food", "ration", "khana", "supplies", "meal", "bhookh", "bhook", "roti", "chawal"],
+            "First Aid Kit": ["first aid kit", "first aid", "bandage", "patti", "medical kit", "injury", "chot", "ghav", "zakhm"]
         }
 
-    def extract_entities(self, transcript: str) -> dict:
-        transcript_lower = transcript.lower()
+        # Precompile regex for optimal matching performance
+        self.urgency_patterns: Dict[str, Pattern] = self._compile_patterns(raw_urgency_map)
+        self.item_patterns: Dict[str, Pattern] = self._compile_patterns(raw_item_map)
         
-        # 1. Edge Case: Empty Transcript
-        if not transcript_lower.strip():
-            return {"item": "Medicines", "urgency": "HIGH", "location_context": "Unknown (Empty Audio)"}
-            
-        # 2. Extract Urgency (Default to HIGH to ensure safety in civic infrastructure)
-        detected_urgency = "HIGH" 
-        for urgency_level, keywords in self.urgency_map.items():
-            if any(kw in transcript_lower for kw in keywords):
-                detected_urgency = urgency_level
-                if detected_urgency == "CRITICAL": break # Highest priority overrides everything
+        # Robust location extraction regex:
+        # English prepositions: location context usually follows (e.g. "near the main station")
+        self.en_loc_pattern = re.compile(
+            r'\b(?:at|in|near|around|towards|from)\s+((?:[a-zA-Z0-9]+\s*){1,5})',
+            re.IGNORECASE
+        )
+        
+        # Indic postpositions: location context usually precedes (e.g. "station ke paas")
+        self.hi_loc_pattern = re.compile(
+            r'\b((?:[a-zA-Z0-9]+\s*){1,4})(?:ke paas|mein|tak|se|idhar|yahan|par|pe|ke nazdeek)\b',
+            re.IGNORECASE
+        )
+        
+        # Cleanup regex
+        self.noise_pattern = re.compile(r'[^\w\s.,!?]')
+
+    def _compile_patterns(self, raw_map: Dict[str, List[str]]) -> Dict[str, Pattern]:
+        """Compiles lists of keywords into efficient word-boundary regex patterns."""
+        compiled_map = {}
+        for key, keywords in raw_map.items():
+            # Sort by length descending to match longer multi-word phrases first
+            sorted_kws = sorted(keywords, key=len, reverse=True)
+            # Escape keywords and join with OR, wrap in word boundaries
+            pattern_str = r'\b(?:' + '|'.join(re.escape(kw) for kw in sorted_kws) + r')\b'
+            compiled_map[key] = re.compile(pattern_str, re.IGNORECASE)
+        return compiled_map
+
+    def extract_entities(self, transcript: str) -> Dict[str, Any]:
+        """
+        Parses raw transcript text safely and accurately.
+        Handles edge cases such as empty input, missing location grammar, and priority overrides.
+        """
+        # Edge Case 1: Empty, null, or whitespace-only transcript
+        if not transcript or not str(transcript).strip():
+            logger.warning("VernacularParser received empty transcript.")
+            return {
+                "item": "Medicines",
+                "urgency": "HIGH", 
+                "location_context": "Unknown (Empty Audio/Text)",
+                "transcript_preview": ""
+            }
+
+        # Preprocess text (remove excessive noise, normalize spaces)
+        clean_text = self.noise_pattern.sub('', str(transcript))
+        clean_text = ' '.join(clean_text.split())
+        
+        # Priority mapping enforces processing hierarchy
+        urgency_priority = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+        detected_urgency = "HIGH" # Default safety net
+        
+        # Edge Case 2: Urgency Extraction (highest priority wins)
+        for level in urgency_priority:
+            if self.urgency_patterns[level].search(clean_text):
+                detected_urgency = level
+                break # We found the highest applicable level, stop searching
                 
-        # 3. Extract Resource Item (Default to general Medicines)
-        detected_item = "Medicines"
-        for item_name, keywords in self.item_map.items():
-            if any(kw in transcript_lower for kw in keywords):
+        # Edge Case 3: Item Extraction (First match wins)
+        detected_item = "Medicines" # Default fallback
+        for item_name, pattern in self.item_patterns.items():
+            if pattern.search(clean_text):
                 detected_item = item_name
                 break
-                
-        # 4. Extract Location Context (Edge Case Handling)
-        # Looks for prepositional phrases indicating location (at, near, in, paas, mein)
-        location_match = re.search(r'\b(at|in|near|around|towards|paas|mein)\s+([a-zA-Z0-9\s,]+)', transcript_lower)
+
+        # Edge Case 4: Location Extraction
+        location_context = ""
         
-        if location_match:
-            # Clean up the regex match, capitalize properly
-            location_context = location_match.group(2)[:500].strip().title()
-        else:
-            # Fallback Edge Case: If no location grammar is found, pass the entire 
-            # transcript so human admins don't lose the context.
-            location_context = transcript[:500].strip()
+        # Check Indic postposition patterns first as they are highly specific
+        hi_match = self.hi_loc_pattern.search(clean_text)
+        en_match = self.en_loc_pattern.search(clean_text)
+        
+        if hi_match:
+            location_context = hi_match.group(1).strip()
+        elif en_match:
+            location_context = en_match.group(1).strip()
             
+        # Clean up trailing punctuation from extracted location
+        location_context = re.sub(r'[,.-]+$', '', location_context).strip().title()
+        
+        # Fallback for weak or missing location contexts
+        if len(location_context) < 3:
+            # Better to provide raw context to human admins than "Unknown" if words are present.
+            location_context = clean_text[:200].strip()
+
         return {
             "item": detected_item,
             "urgency": detected_urgency,
-            "location_context": location_context,
-            "transcript_preview": transcript[:100]
+            "location_context": location_context[:500], # Hard cap to prevent DB overflow
+            "transcript_preview": clean_text[:100]
         }
 
 # Singleton instance
