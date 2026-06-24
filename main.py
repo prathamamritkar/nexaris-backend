@@ -82,7 +82,7 @@ async def ingest_resource_request(req: ResourceRequest):
 async def get_graph_state():
     query = """
     MATCH (c:Citizen)-[n:NEEDS]->(r:Resource)
-    RETURN c.id AS citizen, r.type AS resource, n.urgency AS urgency, n.status AS status
+    RETURN c.id AS citizen, r.type AS resource, coalesce(n.urgency, 'UNKNOWN') AS urgency, coalesce(n.status, 'PENDING') AS status
     """
     try:
         record_data = run_cypher(query)
