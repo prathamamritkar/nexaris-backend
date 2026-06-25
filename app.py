@@ -104,9 +104,9 @@ TRANSLATIONS = {
         'title': 'NEXARIS Node',
         'subtitle': 'Secure Voice Resource Node',
         'instructions': "Tap and speak your resource request",
-        'button': "⚡ Process Request",
-        'success': "✅ Request Processed & Mapped",
-        'error': "❌ Engine Error"
+        'button': "⚡ Transmit Request",
+        'success': "✅ Received - Dispatch Coordinated",
+        'error': "❌ Connection Interrupted - Please Retry"
     }
 }
 
@@ -138,33 +138,50 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS for Modern UI
+# Tactical Flat UI (Military/HUD Design)
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;800&display=swap');
-html,body,[class*="css"]{font-family:'Space Grotesk',monospace}
-.stApp{background-color:#050505;color:#ffffff}
-h1,h2,h3,h4,h5,h6,p,span,label{color:#ffffff!important}
-.main-header{font-weight:800;font-size:clamp(1.8rem,6vw,3rem);color:#ffffff!important;margin-bottom:0.2rem;text-align:center;text-transform:uppercase;letter-spacing:clamp(2px,1vw,4px)}
-.sub-header{font-weight:600;font-size:clamp(0.9rem,3vw,1.2rem);color:#E0E0E0!important;margin-bottom:clamp(1.5rem,4vh,2.5rem);text-align:center;text-transform:uppercase;letter-spacing:2px}
-.block-container{background:#000000!important;border:2px solid #333333!important;border-radius:16px!important;padding:clamp(1.5rem,4vw,3rem)!important;max-width:600px!important;margin:clamp(1rem,5vh,4rem) auto!important}
-audio{filter:invert(1) hue-rotate(180deg) contrast(1.5);border-radius:8px;width:100%;margin-top:2rem}
-[data-testid="stSidebar"]{background-color:#050505!important;border-right:2px solid #333333!important}
-[data-testid="stSidebar"] [data-testid="stMetric"]{align-items:flex-start!important;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:10px;padding:0.75rem 1rem!important;margin-bottom:0.5rem!important}
-[data-testid="stSidebar"] [data-testid="stMetricValue"] > div{justify-content:flex-start!important; font-size:1.4rem!important;}
-[data-testid="stSidebar"] [data-testid="stMetricLabel"] > div{justify-content:flex-start!important;}
-[data-testid="stSidebar"] [data-testid="stMetricLabel"]{font-size:0.9rem!important;opacity:0.8}
-[data-testid="stAlert"]{background-color:#0d0d0d!important;border:2px solid #555555!important;border-radius:10px!important;color:#ffffff!important}
-[data-testid="stAlert"][data-baseweb="notification"]{border-left:6px solid #FF4500!important;border-radius:10px!important}
-.block-container [data-testid="stMarkdownContainer"]{text-align:center!important;width:100%}
-.stButton>button{background:linear-gradient(135deg,#C00000 0%,#E60000 60%,#FF2200 100%)!important;color:#ffffff!important;border-radius:10px!important;border:1.5px solid #FF4D4D!important;height:clamp(60px,10vh,90px);font-weight:800;font-size:clamp(1rem,2.5vw,1.2rem);letter-spacing:3px;text-transform:uppercase;margin-top:1rem;width:100%;box-shadow:0 4px 20px rgba(230,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.08);transition:all 0.18s cubic-bezier(0.4,0,0.2,1)}
-.stButton>button:hover{background:linear-gradient(135deg,#E60000 0%,#FF2200 60%,#FF4500 100%)!important;border-color:#FF7755!important;border-radius:10px!important;box-shadow:0 6px 28px rgba(255,69,0,0.5),inset 0 1px 0 rgba(255,255,255,0.12)!important;transform:translateY(-2px)}
-.stButton>button:active{background:linear-gradient(135deg,#990000 0%,#CC0000 100%)!important;border-color:#FF4D4D!important;border-radius:10px!important;box-shadow:0 2px 8px rgba(200,0,0,0.4)!important;transform:translateY(0px)}
-.stButton>button:focus:not(:active){border-color:#FF7755!important;border-radius:10px!important;box-shadow:0 0 0 3px rgba(255,69,0,0.25),0 4px 20px rgba(230,0,0,0.35)!important;outline:none!important}
-.stButton>button[kind="secondary"]{background:transparent!important;border:1.5px solid #444!important;border-radius:10px!important;color:#ccc!important;box-shadow:none!important}
-.stButton>button[kind="secondary"]:hover{border-color:#888!important;color:#fff!important;background:#111!important}
-[data-testid="stSpinner"]{border-radius:10px!important}
-[data-testid="stSpinner"] svg circle{stroke:#FF4500!important}
+    /* Deep Space Black Background */
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;800&display=swap');
+    .stApp { background-color: #050505; color: #ffffff; font-family: 'Space Grotesk', monospace; }
+    
+    /* Tactical Typography */
+    h1, h2, h3, .main-header, .sub-header { color: #FFFFFF !important; text-transform: uppercase; letter-spacing: 2px; }
+    .main-header { font-weight: 800; font-size: clamp(1.8rem, 6vw, 3rem); text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 0.2rem;}
+    .sub-header { font-weight: 600; font-size: clamp(0.9rem, 3vw, 1.2rem); text-align: center; margin-bottom: clamp(1.5rem, 4vh, 2.5rem); }
+    p, span, label { color: #E0E0E0 !important; }
+    
+    /* Flat Design Neon Buttons (Psychologically Reassuring Tactical Blue) */
+    .stButton>button {
+        background-color: #0066FF !important;
+        color: white !important;
+        border-radius: 0px !important; 
+        border: 2px solid #3385FF !important;
+        height: 70px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        transition: all 0.2s ease-in-out;
+        width: 100%;
+        margin-top: 1rem;
+    }
+    .stButton>button:hover { background-color: #0052CC !important; border-color: #FFF !important; box-shadow: 0px 0px 15px rgba(51, 133, 255, 0.5) !important; transform: none; }
+    .stButton>button:active { background-color: #003D99 !important; border-color: #3385FF !important; }
+    .stButton>button:focus:not(:active) { outline: none !important; }
+    
+    /* Text Inputs */
+    .stTextInput>div>div>input { background-color: #111; color: #00E5FF; border: 1px solid #333; border-radius: 0px; }
+    .stTextInput>div>div>input:focus { border-color: #00E5FF; }
+    
+    /* Status Badges */
+    .success-badge { color: #00E5FF; border: 1px solid #00E5FF; padding: 10px; text-align: center; font-weight: bold; }
+    .error-badge { color: #FF2A2A; border: 1px solid #FF2A2A; padding: 10px; text-align: center; font-weight: bold; }
+
+    /* Other elements */
+    .block-container { background: #000000 !important; border: 2px solid #333333 !important; padding: clamp(1.5rem,4vw,3rem) !important; max-width: 600px !important; margin: clamp(1rem,5vh,4rem) auto !important; }
+    audio { filter: invert(1) hue-rotate(180deg) contrast(1.5); border-radius: 0px; width: 100%; margin-top: 2rem; }
+    [data-testid="stSidebar"] { background-color: #050505 !important; border-right: 2px solid #333333 !important; }
+    [data-testid="stSidebar"] [data-testid="stMetric"] { background: #0a0a0a; border: 1px solid #2a2a2a; padding: 0.75rem 1rem !important; margin-bottom: 0.5rem !important; }
 </style>
 <script>
 // accessibility and lazy load optimizations
@@ -188,7 +205,16 @@ observer.observe(document.body,{childList:true,subtree:true});
 
 
 # Fetch localization context
-lang_code = get_browser_language()
+lang_code_auto = get_browser_language()
+if lang_code_auto not in TRANSLATIONS:
+    lang_code_auto = 'en'
+
+with st.sidebar:
+    st.subheader("🌐 Language / भाषा")
+    lang_options = list(TRANSLATIONS.keys())
+    lang_index = lang_options.index(lang_code_auto)
+    lang_code = st.selectbox("Select Language", lang_options, index=lang_index, label_visibility="collapsed")
+
 t = TRANSLATIONS.get(lang_code, TRANSLATIONS['en'])
 
 # ==================== UI COMPONENTS ====================
@@ -218,50 +244,55 @@ observer.observe(window.parent.document.body,{childList:true,subtree:true});
 </script>
 """)
 
-st.subheader("🎙️ " + t['instructions'])
+st.subheader("ACOUSTIC CAPTURE")
+st.write(t['instructions'])
 
 # The Microphone Widget
-col1, col2, col3 = st.columns([4, 1, 4])
+col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
-    audio_bytes = audio_recorder(
-        text="", 
-        recording_color="#FF4500", # Pulsating red icon when recording
-        neutral_color="#00AEEF",   # Cyber-blue icon normally
-        icon_name="microphone",
-        icon_size="4x"
-    )
+    audio_bytes = audio_recorder(text="INITIALIZE MIC", recording_color="#0066FF", neutral_color="#444444")
 
-if audio_bytes:
-    st.audio(audio_bytes, format="audio/wav")
-    st.markdown("<br>", unsafe_allow_html=True)
+st.subheader("MANUAL OVERRIDE")
+text_fallback = st.text_input(
+    "Enter request manually:", 
+    placeholder="e.g., 'Urgently need 50 blood packs at North Crossroad'",
+    help="Type your resource request here if you cannot use voice or if the microphone is unavailable."
+)
+
+if audio_bytes or text_fallback:
+    if audio_bytes:
+        st.audio(audio_bytes, format="audio/wav")
+        st.markdown("<br>", unsafe_allow_html=True)
     
-    # Check session state to prevent duplicate processing on generic reruns
-    if "last_processed_audio" not in st.session_state:
-        st.session_state.last_processed_audio = None
-
-    if st.button(t['button'], type="primary", use_container_width=True):
-        if audio_bytes != st.session_state.last_processed_audio:
-            with st.spinner("Processing..."):
-                try:
+    if st.button(t['button'], use_container_width=True):
+        with st.spinner("TRANSMITTING TO T-CORE..."):
+            try:
+                if audio_bytes:
                     files = {"file": ("recording.wav", audio_bytes, "audio/wav")}
-                    
                     response = requests.post(
                         f"{BACKEND_URL}/api/v1/ingest/audio",
                         files=files,
                         timeout=API_TIMEOUT
                     )
+                else:
+                    response = requests.post(
+                        f"{BACKEND_URL}/api/v1/ingest/text", 
+                        json={"text": text_fallback}, 
+                        timeout=API_TIMEOUT
+                    )
                     
-                    if response.status_code == 200:
-                        st.success(t['success'])
-                        st.json(response.json())
-                        st.session_state.last_processed_audio = audio_bytes
-                    else:
-                        st.error(f"{t['error']}: {response.json().get('detail', 'Unknown Error')}")
-                        
-                except Exception as e:
-                    st.error(f"Connection Failed: {e}")
-        else:
-            st.info("This audio request has already been processed.")
+                if response.status_code == 200:
+                    st.markdown(f"<div class='success-badge' role='status' aria-live='polite'>{t['success']}</div>", unsafe_allow_html=True)
+                    data = response.json()
+                    
+                    if "structured_payload" in data:
+                        payload = data["structured_payload"].get("entities", {})
+                        st.info(f"**Item**: {payload.get('item')}\n\n**Urgency**: {payload.get('urgency')}\n\n**Location**: {payload.get('location_context')}")
+                else:
+                    st.markdown(f"<div class='error-badge' role='alert' aria-live='assertive'>{t['error']}: {response.json().get('detail', 'Unknown Error')}</div>", unsafe_allow_html=True)
+                    
+            except Exception as e:
+                st.markdown(f"<div class='error-badge' role='alert' aria-live='assertive'>NETWORK FAILURE: {e}</div>", unsafe_allow_html=True)
 
 # ==================== SIDEBAR INFO ====================
 with st.sidebar:

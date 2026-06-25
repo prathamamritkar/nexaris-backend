@@ -36,20 +36,20 @@ class VernacularParser:
         self.item_patterns: Dict[str, Pattern] = self._compile_patterns(raw_item_map)
         
         # Robust location extraction regex:
-        # English prepositions: location context usually follows (e.g. "near the main station")
+        # English prepositions: location context usually follows (e.g. "near St. Jude's")
         self.en_loc_pattern = re.compile(
-            r'\b(?:at|in|near|around|towards|from)\s+((?:[a-zA-Z0-9]+\s*){1,5})',
+            r'\b(?:at|in|near|around|towards|from)\s+((?:[a-zA-Z0-9\'-]+\s*){1,5})',
             re.IGNORECASE
         )
         
-        # Indic postpositions: location context usually precedes (e.g. "station ke paas")
+        # Indic postpositions: location context usually precedes (e.g. "Dadar-East ke paas")
         self.hi_loc_pattern = re.compile(
-            r'\b((?:[a-zA-Z0-9]+\s*){1,4})(?:ke paas|mein|tak|se|idhar|yahan|par|pe|ke nazdeek)\b',
+            r'\b((?:[a-zA-Z0-9\'-]+\s*){1,4})(?:ke paas|mein|tak|se|idhar|yahan|par|pe|ke nazdeek)\b',
             re.IGNORECASE
         )
         
-        # Cleanup regex
-        self.noise_pattern = re.compile(r'[^\w\s.,!?]')
+        # Cleanup regex (Preserve hyphens and apostrophes for composite/transliterated words)
+        self.noise_pattern = re.compile(r'[^\w\s.,!?\'-]')
 
     def _compile_patterns(self, raw_map: Dict[str, List[str]]) -> Dict[str, Pattern]:
         """Compiles lists of keywords into efficient word-boundary regex patterns."""
@@ -71,9 +71,9 @@ class VernacularParser:
         if not transcript or not str(transcript).strip():
             logger.warning("VernacularParser received empty transcript.")
             return {
-                "item": "Medicines",
-                "urgency": "HIGH", 
-                "location_context": "Unknown (Empty Audio/Text)",
+                "item": "UNKNOWN_RESOURCE",
+                "urgency": "UNKNOWN", 
+                "location_context": "UNKNOWN_LOCATION",
                 "transcript_preview": ""
             }
 
@@ -83,7 +83,7 @@ class VernacularParser:
         
         # Priority mapping enforces processing hierarchy
         urgency_priority = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
-        detected_urgency = "HIGH" # Default safety net
+        detected_urgency = "UNKNOWN" # Default safety net
         
         # Edge Case 2: Urgency Extraction (highest priority wins)
         for level in urgency_priority:
@@ -91,12 +91,17 @@ class VernacularParser:
                 detected_urgency = level
                 break # We found the highest applicable level, stop searching
                 
-        # Edge Case 3: Item Extraction (First match wins)
-        detected_item = "Medicines" # Default fallback
+        # Edge Case 3: Item Extraction (Longest Match Wins / Maximum Munch Algorithm)
+        # Prevents semantic overlap (e.g., matching "blood" when "blood pressure monitor" is spoken)
+        detected_item = "UNKNOWN_RESOURCE"
+        longest_match_len = 0
+        
         for item_name, pattern in self.item_patterns.items():
-            if pattern.search(clean_text):
-                detected_item = item_name
-                break
+            for match in pattern.finditer(clean_text):
+                match_length = len(match.group())
+                if match_length > longest_match_len:
+                    longest_match_len = match_length
+                    detected_item = item_name
 
         # Edge Case 4: Location Extraction
         location_context = ""
@@ -115,8 +120,7 @@ class VernacularParser:
         
         # Fallback for weak or missing location contexts
         if len(location_context) < 3:
-            # Better to provide raw context to human admins than "Unknown" if words are present.
-            location_context = clean_text[:200].strip()
+            location_context = "Unknown"
 
         return {
             "item": detected_item,

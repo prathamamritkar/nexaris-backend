@@ -132,7 +132,8 @@ def durable_agent_loop():
                         supplier = match.get('supplier_name', 'UNKNOWN')
                         resource = match.get('resource_type', 'UNKNOWN')
                         qty = match.get('available_qty', '?')
-                        logger.info(f"  → [{resource}] {citizen} ← Supplier: {supplier} (Qty: {qty})")
+                        masked_citizen = f"{citizen[:2]}****{citizen[-2:]}" if len(citizen) > 4 else "****"
+                        logger.info(f"  → [{resource}] {masked_citizen} ← Supplier: {supplier} (Qty: {qty})")
                 else:
                     logger.info(f"[{datetime.now()}] ✅ Graph is optimized. No pending bottlenecks detected.")
 

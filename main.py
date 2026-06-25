@@ -3,6 +3,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import secrets
 
 from fastapi import FastAPI, HTTPException, File, UploadFile, Depends, Security, Header
 from fastapi.security.api_key import APIKeyHeader
@@ -227,12 +228,12 @@ def _sweep_stale_requests() -> int:
     return results[0].get("stale_count", 0) if results else 0
 
 @app.get("/")
-async def root():
+def root():
     return {"name": "NEXARIS Topological Engine", "version": "2.0.0", "status": "operational", "docs": "/docs"}
 
 
 @app.get("/health")
-async def health_check():
+def health_check():
     """Health check endpoint"""
     try:
         if driver:
@@ -247,14 +248,15 @@ async def health_check():
 
 
 @app.post("/api/v1/ingest", response_model=SuccessResponse)
-async def ingest_resource_request(req: ResourceRequest):
+def ingest_resource_request(req: ResourceRequest):
     """
     Ingest a structured resource request into the topological network
     CRITICAL: Input validation happens via Pydantic validators
     """
     try:
         _ingest_to_db(req, created_by='ingest_api_v1')
-        logger.info(f"✅ Resource request ingested: citizen={req.citizen_id}, item={req.item}, urgency={req.urgency}")
+        masked_citizen = f"{req.citizen_id[:2]}****{req.citizen_id[-2:]}" if len(req.citizen_id) > 4 else "****"
+        logger.info(f"✅ Resource request ingested: citizen={masked_citizen}, item={req.item}, urgency={req.urgency}")
 
         return SuccessResponse(message="Resource request successfully mapped to topological network")
 
@@ -269,7 +271,7 @@ async def ingest_resource_request(req: ResourceRequest):
 
 
 @app.post("/api/v1/migrate", response_model=SuccessResponse)
-async def migrate_relationships():
+def migrate_relationships():
     """
     Migrate existing NEEDS relationships to add missing properties
     Use with caution in production
@@ -297,12 +299,15 @@ async def migrate_relationships():
         raise HTTPException(status_code=500, detail="Migration operation failed")
 
 
-@app.get("/api/v1/graph-state")
-async def get_graph_state(x_admin_key: str = Header(None)):
-    """Retrieve current graph state (AUTHENTICATED)"""
-    # Verify the key matches what you set in Render's Environment Variables
-    if x_admin_key != os.getenv("ADMIN_SECRET_KEY", "fallback_secret"):
+async def verify_admin_key(x_admin_key: str = Header(None)):
+    admin_secret = os.getenv("ADMIN_SECRET_KEY", "fallback_secret")
+    if not x_admin_key or not secrets.compare_digest(x_admin_key, admin_secret):
         raise HTTPException(status_code=401, detail="Unauthorized Command Center Access")
+    return x_admin_key
+
+@app.get("/api/v1/graph-state")
+def get_graph_state(admin_key: str = Depends(verify_admin_key)):
+    """Retrieve current graph state (AUTHENTICATED)"""
     try:
         query = """
         MATCH (c:Citizen)-[n:NEEDS]->(r:Resource)
@@ -333,12 +338,12 @@ CRON_SECRET_KEY = os.getenv("CRON_SECRET_KEY", "generate_a_long_random_string_he
 api_key_header = APIKeyHeader(name="X-Cron-Signature", auto_error=True)
 
 async def verify_cron_key(api_key: str = Security(api_key_header)):
-    if api_key != CRON_SECRET_KEY:
+    if not api_key or not secrets.compare_digest(api_key, CRON_SECRET_KEY):
         raise HTTPException(status_code=403, detail="Invalid Cron Signature")
     return api_key
 
 @app.post("/api/v1/admin/trigger-sweep", include_in_schema=False)
-async def manual_psa_sweep(api_key: str = Depends(verify_cron_key)):
+def manual_psa_sweep(api_key: str = Depends(verify_cron_key)):
     """
     Serverless endpoint to trigger the PSA sweep. 
     Hit this via GitHub Actions every 5 minutes.
@@ -349,6 +354,18 @@ async def manual_psa_sweep(api_key: str = Depends(verify_cron_key)):
     except Exception as e:
         logger.error(f"Cron sweep failed: {e}")
         raise HTTPException(status_code=500, detail="Sweep failed")
+
+
+@app.post("/api/v1/admin/dispatch")
+def manual_dispatch(citizen_id: str, admin_key: str = Depends(verify_admin_key)):
+    """Allows Base44 admins to manually force a dispatch"""
+    query = """
+    MATCH (c:Citizen {id: $citizen_id})-[r:NEEDS]->(res:Resource)
+    SET r.status = 'DISPATCHED_BY_ADMIN'
+    RETURN c.id
+    """
+    run_cypher(query, citizen_id=citizen_id)
+    return {"status": "success"}
 
 # ==================== BACKGROUND AGENT ====================
 async def perpetual_state_agent_loop():
@@ -365,9 +382,9 @@ async def perpetual_state_agent_loop():
             stale_count = _sweep_stale_requests()
 
             if stale_count > 0:
-                    logger.warning(f"⚠️  PSA Alert: {stale_count} requests marked STALE - escalation triggered")
-                else:
-                    logger.debug("✅ PSA: All requests within normal parameters")
+                logger.warning(f"⚠️  PSA Alert: {stale_count} requests marked STALE - escalation triggered")
+            else:
+                logger.debug("✅ PSA: All requests within normal parameters")
 
         except Exception as e:
             logger.error(f"❌ PSA Error: {e}")
@@ -377,7 +394,7 @@ async def perpetual_state_agent_loop():
 
 
 @app.post("/api/v1/ingest/audio")
-async def process_vernacular_audio(file: UploadFile = File(...)):
+def process_vernacular_audio(file: UploadFile = File(...)):
     """
     Process audio file: transcribe via Sarvam AI and ingest into network
     """
@@ -392,7 +409,10 @@ async def process_vernacular_audio(file: UploadFile = File(...)):
         )
 
         # Read audio file with size limit
-        audio_content = await file.read()
+        audio_content = file.file.read()
+
+        if len(audio_content) < 1024:
+            raise ValidationError("Acoustic payload too small (likely dead-air or corrupted headers)")
 
         if len(audio_content) > settings.MAX_AUDIO_FILE_SIZE_BYTES:
             raise ValidationError("Audio file exceeds size limit")
@@ -469,6 +489,56 @@ async def process_vernacular_audio(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"Audio processing failed: {e}")
         raise HTTPException(status_code=500, detail="Audio processing failed")
+
+
+@app.post("/api/v1/ingest/text")
+def process_fallback_text(payload: dict):
+    """
+    Process manual text override: extract entities and ingest into network
+    """
+    try:
+        text = payload.get("text", "").strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="No text provided in request")
+            
+        logger.info(f"Processing text override (content redacted for privacy)")
+
+        # Zero-Dependency Deterministic Entity Extraction
+        extracted_entities = nlp.extract_entities(text)
+
+        structured_payload = {
+            "intent": "RESOURCE_REQUEST",
+            "entities": extracted_entities
+        }
+        
+        req = ResourceRequest(
+            citizen_id=f"text_node_{int(datetime.now(timezone.utc).timestamp())}",
+            intent="RESOURCE_REQUEST",
+            item=extracted_entities["item"],
+            urgency=extracted_entities["urgency"],
+            location_context=extracted_entities["location_context"]
+        )
+        
+        # Automatically ingest this into the Topological Graph
+        _ingest_to_db(req, created_by='text_fallback_bridge')
+
+        logger.info("Text pipeline processed and mapped to T-Core successfully.")
+
+        return {
+            "status": "success",
+            "message": "Text processed and mapped to topological network",
+            "structured_payload": structured_payload,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    except ValidationError as e:
+        logger.warning(f"Text validation failed: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Text processing failed: {e}")
+        raise HTTPException(status_code=500, detail="Text processing failed")
 
 
 # ==================== ERROR HANDLERS ====================

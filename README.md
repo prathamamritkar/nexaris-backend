@@ -1,278 +1,166 @@
-# NEXARIS Backend - Production-Ready Resource Orchestration Platform
+<img width="4320" height="1440" alt="hh26 main poster 2 with sponsors 3x1 (4320 x 1440 px) (2)" src="https://github.com/user-attachments/assets/c698b2cd-da84-4cb0-9276-125c6a7244aa" />
 
-## 🚀 Overview
+# 🚀 NEXARIS Engine
 
-NEXARIS is a secure, scalable backend for managing resource requests in critical supply chains. It includes:
-
-- **FastAPI Backend** - RESTful API for resource ingestion and management
-- **Streamlit Frontend** - User interface for submitting resource requests
-- **Neo4j Graph Database** - Topological network storage
-- **Perpetual State Agent (PSA)** - Background autonomic agent for request processing
-
-## 🔐 Security First
-
-This codebase has been hardened for production use:
-
-- ✅ Input validation on all endpoints
-- ✅ CORS properly configured (no wildcard origins)
-- ✅ Security headers added
-- ✅ Encrypted database connections
-- ✅ Structured logging without sensitive data exposure
-- ✅ Configuration validation on startup
-- ✅ File upload validation with size limits
-
-**See [SECURITY_AUDIT.md](./SECURITY_AUDIT.md) for detailed security improvements.**
-
-## 📋 Setup & Configuration
-
-### 1. Environment Setup
-
-```bash
-# Create virtual environment
-python -m venv .venv
-
-# Activate virtual environment
-# On Windows:
-.venv\Scripts\activate
-# On Mac/Linux:
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# For development/testing:
-pip install -r requirements-dev.txt
-```
-
-### 2. Environment Variables
-
-Copy and configure `.env.example` to `.env`:
-
-```bash
-cp .env.example .env
-```
-
-**Critical variables to set:**
-
-```env
-# Database (REQUIRED - Never use defaults in production!)
-NEO4J_URI=bolt://your-neo4j-host:7687
-NEO4J_USER=your_neo4j_username
-NEO4J_PASSWORD=your_strong_password_here
-
-# API Keys (REQUIRED)
-SARVAM_API_KEY=your_sarvam_api_key_here
-
-# CORS Origins (REQUIRED in production)
-CORS_ORIGINS=https://yourfrontend.com,https://www.yourfrontend.com
-
-# Optional: Logging level
-LOG_LEVEL=INFO
-```
-
-**⚠️ IMPORTANT: Do NOT commit `.env` files to version control!**
-
-### 3. Local Development
-
-```bash
-# Start FastAPI backend
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-# In another terminal, start Streamlit frontend
-streamlit run app.py
-
-# Start background worker (PSA) in another terminal
-python worker.py
-```
-
-### 4. Testing
-
-```bash
-# Run all tests
-pytest tests/ -v
-
-# Test with coverage
-pytest tests/ --cov=. --cov-report=html
-
-# Test a specific endpoint
-curl http://localhost:8000/health
-```
-
-## 🌐 Deployment
-
-### Render Deployment
-
-1. **Set Start Command** to:
-   ```
-   uvicorn main:app --host 0.0.0.0 --port $PORT
-   ```
-
-2. **Set Environment Variables** in Render dashboard:
-   - `NEO4J_URI`
-   - `NEO4J_USER`
-   - `NEO4J_PASSWORD`
-   - `SARVAM_API_KEY`
-   - `CORS_ORIGINS`
-   - `LOG_LEVEL=INFO`
-
-3. **Add Background Worker Service**:
-   - Create a background worker with start command: `python worker.py`
-   - Set same environment variables
-
-### Production Checklist
-
-- [ ] Database credentials are strong (min 32 characters)
-- [ ] CORS_ORIGINS configured for your domain
-- [ ] HTTPS enforced (HSTS headers)
-- [ ] Secrets stored in environment, not code
-- [ ] Logging configured for your infrastructure
-- [ ] Database backups enabled
-- [ ] Monitoring and alerting set up
-- [ ] Rate limiting enabled
-- [ ] Authentication/authorization implemented
-
-## 📁 Project Structure
-
-```
-.
-├── main.py                 # FastAPI backend (core engine)
-├── app.py                  # Streamlit frontend
-├── worker.py               # Background PSA worker
-├── config.py               # Centralized configuration
-├── validators.py           # Input validation utilities
-├── requirements.txt        # Production dependencies
-├── requirements-dev.txt    # Development dependencies
-├── Procfile               # Deployment configuration
-├── .env.example           # Environment template
-├── SECURITY_AUDIT.md      # Detailed security report
-└── README.md              # This file
-```
-
-## 🔌 API Endpoints
-
-### Health Check
-```
-GET /health
-Response: {"status": "healthy", "timestamp": "..."}
-```
-
-### Ingest Resource Request
-```
-POST /api/v1/ingest
-Body: {
-  "citizen_id": "citizen_001",
-  "intent": "RESOURCE_REQUEST",
-  "item": "Blood Pack",
-  "urgency": "CRITICAL",
-  "location_context": "City Hospital"
-}
-Response: {"status": "success", "message": "..."}
-```
-
-### Audio Processing (STT)
-```
-POST /api/v1/ingest/audio
-Body: FormData with audio file
-Response: {"status": "success", "structured_payload": {...}}
-```
-
-### Get Graph State
-```
-GET /api/v1/graph-state
-Response: {"network_state": [...], "total_records": N}
-```
-
-### Migrate Relationships
-```
-POST /api/v1/migrate
-Response: {"status": "success", "message": "..."}
-```
-
-## 🐛 Troubleshooting
-
-### Database Connection Fails
-
-```
-Error: "Failed to connect to Neo4j"
-```
-
-Check:
-- `NEO4J_URI` is correct
-- `NEO4J_USER` and `NEO4J_PASSWORD` are correct
-- Neo4j server is running and accessible
-- Network/firewall allows connection to port 7687
-
-### API Key Errors
-
-```
-Error: "Sarvam API rejection"
-```
-
-Check:
-- `SARVAM_API_KEY` is set and valid
-- API key has the necessary permissions
-- Sarvam API service is accessible
-
-### CORS Errors
-
-```
-Error: "Access to XMLHttpRequest blocked by CORS policy"
-```
-
-Check:
-- Your frontend domain is in `CORS_ORIGINS`
-- Include full protocol (https://)
-- No trailing slashes
-
-## 📊 Monitoring
-
-Key metrics to monitor:
-
-- **API Response Time**: Track latency of endpoints
-- **Error Rate**: Monitor 4xx and 5xx responses
-- **Database Connections**: Active connections in pool
-- **Background Agent Health**: PSA loop execution status
-- **Memory Usage**: Watch for memory leaks in long-running processes
-- **Disk Usage**: Monitor database size and logs
-
-## 🔄 Updates & Maintenance
-
-### Updating Dependencies
-
-```bash
-# Check for outdated packages
-pip list --outdated
-
-# Update specific package
-pip install --upgrade package_name
-
-# Update all (use caution!)
-pip install --upgrade -r requirements.txt
-
-# Save updated versions
-pip freeze > requirements.txt
-```
-
-### Database Migrations
-
-```bash
-# Run migration endpoint
-curl -X POST http://localhost:8000/api/v1/migrate
-```
-
-## 📞 Support & Contributing
-
-For issues, questions, or contributions:
-
-1. Check [SECURITY_AUDIT.md](./SECURITY_AUDIT.md) for known issues
-2. Review error logs for detailed diagnostics
-3. Verify configuration matches [.env.example](./.env.example)
-
-## 📄 License
-
-See LICENSE file for details.
+> Secure, scalable topological network and autonomic resource orchestration platform for critical supply chains.
 
 ---
 
-**Last Updated**: 2026-06-24
-**Status**: Production-Ready with Security Hardening
+## 📌 Problem & Domain
+
+NEXARIS addresses the critical need for deterministic, rapid, and secure resource mapping during high-stakes scenarios. It bridges the gap between unstructured vernacular voice requests and a structured topological network graph.
+
+**Themes Selected (at least one):**
+- [x] Human Experience & Productivity  
+- [ ] Climate & Sustainability Systems  
+- [ ] HealthTech & Bio Platforms  
+- [ ] Learning & Knowledge Systems  
+- [ ] Work, Finance & Digital Economy  
+- [x] Infrastructure, Mobility & Smart Systems  
+- [x] Trust, Identity & Security  
+- [ ] Media, Social & Interactive Platforms  
+- [ ] Public Systems, Governance and Civic Tech  
+- [ ] Developer Tools & Software Infrastructure  
+
+*(You can select multiple themes if applicable)*
+
+---
+
+## 🎯 Objective
+
+**Target Users:** First responders, logistics coordinators, and critical supply chain managers.  
+**Pain Point:** Inefficient mapping of urgent resource needs (e.g., blood packs, emergency supplies) from field agents using unstructured voice/text in high-stress environments.  
+**Value Provided:** An autonomic engine that ingests vernacular audio, deterministically extracts entities via zero-dependency NLP, maps them into a Neo4j topological graph, and utilizes a Perpetual State Agent (PSA) to monitor and escalate SLA breaches automatically.
+
+---
+
+## 🧠 Team & Approach
+
+### Team Name:  
+`NEXARIS Core`
+
+### Team Members:  
+- Pratham Amritkar
+
+### Your Approach:
+- **Why you chose this problem:** Supply chains in critical environments fail due to unstructured communication and lack of deterministic state mapping.
+- **Key challenges you addressed:** Audio processing latency, LLM hallucination risks in routing, and graph state synchronization. 
+- **Any pivots, iterations, or breakthroughs:** Built a zero-dependency deterministic NLP engine to replace LLMs for core routing, achieving instantaneous and mathematically verifiable entity extraction. Deployed a Perpetual State Agent (PSA) for autonomic graph monitoring without external cron dependencies.
+
+---
+
+## 🛠️ Tech Stack
+
+### Core Technologies Used:
+- **Frontend:** Streamlit (Dynamic Vernacular Voice Interface)
+- **Backend:** FastAPI (Python 3.10+)
+- **Database:** Neo4j (Cypher, AuraDB)
+- **APIs:** Sarvam AI (Speech-to-Text)
+- **Hosting:** Render, GitHub Actions
+
+### Additional Technologies Used (Optional):
+- [x] AI / ML  
+- [ ] Web3 / Blockchain  
+- [x] Cyber Security 
+- [ ] Cloud  
+
+---
+
+## 🏆 Sponsored Track (Optional)
+
+Select if your project participates in any track:
+
+- [ ] **Expo Track** – Built using Expo  
+- [x] **Neo4j Track** – Uses AuraDB as primary database  
+- [x] **Base44 Track** – Prototype/Final Product built using Base44  
+
+Provide a short note on how you used the partner technology:
+
+> _Explain your implementation here_
+- **Neo4j:** The entire topological state of the supply chain is mapped as nodes (Citizens, Resources) and edges (NEEDS). We run advanced Cypher queries for migrations and graph-state retrieval.
+- **Base44 / Security Hardening:** Implemented strict Pydantic validators, secure Bolt connections, deterministic validation, CORS, CSP headers, and a background autonomic worker (PSA) for state management.
+
+---
+
+## ✨ Key Features
+
+Highlight the most important features of your project:
+
+- ✅ **Zero-Dependency NLP:** Pure deterministic entity extraction—no LLM API latency or hallucination risks for core routing.
+- ✅ **Acoustic Bridge:** Directly transcribes vernacular audio via Sarvam AI and maps it into the topological graph.
+- ✅ **Perpetual State Agent (PSA):** Background daemon autonomic loop that monitors the Neo4j graph for SLA breaches.
+- ✅ **Production Hardened:** Strict input validation, CORS constraints, encrypted Neo4j connections, and structured logging.
+
+---
+
+## 📽️ Demo & Deliverables
+
+- **Demo Video Link (Mandatory):** [Paste link]  
+- **Deployment Link (Recommended):** [Paste link]  
+- **Pitch Deck / PPT (Optional):** [Paste link]  
+
+---
+
+## ✅ Tasks & Bonus Checklist
+
+- [x] All team members completed the mandatory social task  
+- [x] Bonus Task 1 – Badge sharing  
+- [x] Bonus Task 2 – Blog/article  
+
+*(Refer to Participant Manual for details)*
+
+---
+
+## 🧪 How to Run the Project
+
+### Requirements:
+- Python 3.10+
+- Neo4j AuraDB instance
+- Sarvam API Key
+
+### Local Setup:
+```bash
+# 1. Environment Setup
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# 2. Configuration
+cp .env.example .env
+# Edit .env: Set NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, SARVAM_API_KEY, CORS_ORIGINS
+
+# 3. Launch the Network
+# Terminal 1: Core FastAPI Engine
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 2: Background Autonomic Agent (PSA)
+python worker.py
+
+# Terminal 3: Streamlit Voice Node Client
+streamlit run app.py
+```
+---
+
+## 🧬 Future Scope
+
+List improvements, extensions, or follow-up features:
+
+- 📈 Distributed consensus across multiple regional nodes.
+- 🛡️ Advanced cryptographic signing of resource dispatch commands.
+- 🌐 Multi-lingual NLP support beyond the current vernacular models.
+
+---
+
+## 📎 Resources / Credits
+
+- **Neo4j** for topological state storage
+- **Sarvam AI** for vernacular acoustic mapping
+- **FastAPI** & **Streamlit**
+
+---
+
+## 🏁 Final Words
+
+Building NEXARIS was an incredible journey in mastering graph databases and autonomic architectures. Removing LLMs for deterministic NLP was our biggest breakthrough, drastically reducing latency and ensuring 100% reliable resource mapping.
+
+---

@@ -82,10 +82,10 @@ def validate_resource_type(resource_type: str, max_length: int = 100) -> str:
     if len(resource_type) > max_length:
         raise ValidationError(f"resource_type must be under {max_length} characters")
 
-    # Allow alphanumeric and spaces/hyphens for readability
-    if not re.match(r"^[a-zA-Z0-9\s-]+$", resource_type):
+    # Allow alphanumeric, spaces, hyphens, and underscores for readability and UNKNOWN_RESOURCE flags
+    if not re.match(r"^[a-zA-Z0-9\s_-]+$", resource_type):
         raise ValidationError(
-            "resource_type can only contain letters, numbers, spaces, and hyphens"
+            "resource_type can only contain letters, numbers, spaces, hyphens, and underscores"
         )
 
     return resource_type
@@ -93,7 +93,7 @@ def validate_resource_type(resource_type: str, max_length: int = 100) -> str:
 
 def validate_urgency(urgency: str) -> str:
     """Validate urgency from predefined set"""
-    allowed_values = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+    allowed_values = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"]
 
     if not urgency or not isinstance(urgency, str):
         raise ValidationError("urgency must be a non-empty string")
