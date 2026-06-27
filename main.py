@@ -300,7 +300,10 @@ def migrate_relationships():
 
 
 async def verify_admin_key(x_admin_key: str = Header(None)):
-    admin_secret = os.getenv("ADMIN_SECRET_KEY", "fallback_secret")
+    admin_secret = os.getenv("ADMIN_SECRET_KEY")
+    if not admin_secret:
+        logger.error("ADMIN_SECRET_KEY is not configured in the environment.")
+        raise HTTPException(status_code=500, detail="Server Configuration Error")
     if not x_admin_key or not secrets.compare_digest(x_admin_key, admin_secret):
         raise HTTPException(status_code=401, detail="Unauthorized Command Center Access")
     return x_admin_key
@@ -334,11 +337,14 @@ def get_graph_state(admin_key: str = Depends(verify_admin_key)):
 
 
 # ==================== ADMIN ENDPOINTS ====================
-CRON_SECRET_KEY = os.getenv("CRON_SECRET_KEY", "generate_a_long_random_string_here")
 api_key_header = APIKeyHeader(name="X-Cron-Signature", auto_error=True)
 
 async def verify_cron_key(api_key: str = Security(api_key_header)):
-    if not api_key or not secrets.compare_digest(api_key, CRON_SECRET_KEY):
+    cron_secret_key = os.getenv("CRON_SECRET_KEY")
+    if not cron_secret_key:
+        logger.error("CRON_SECRET_KEY is not configured in the environment.")
+        raise HTTPException(status_code=500, detail="Server Configuration Error")
+    if not api_key or not secrets.compare_digest(api_key, cron_secret_key):
         raise HTTPException(status_code=403, detail="Invalid Cron Signature")
     return api_key
 
