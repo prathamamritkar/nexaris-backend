@@ -127,7 +127,8 @@ def backend_url_accessible(url: str, timeout: int = 5) -> bool:
     try:
         response = requests.get(f"{url}/health", timeout=timeout)
         return response.status_code == 200
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Backend health check failed: {e}")
         return False
 
 # ==================== PAGE CONFIG ====================
