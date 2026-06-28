@@ -6,12 +6,14 @@ from typing import Optional
 import secrets
 
 from fastapi import FastAPI, HTTPException, File, UploadFile, Depends, Security, Header
+from fastapi.concurrency import run_in_threadpool
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from neo4j import GraphDatabase, exceptions as neo4j_exceptions
 from pydantic import BaseModel, Field, field_validator
 import requests
+import httpx
 import os
 
 from config import settings
@@ -400,7 +402,7 @@ async def perpetual_state_agent_loop():
 
 
 @app.post("/api/v1/ingest/audio")
-def process_vernacular_audio(file: UploadFile = File(...)):
+async def process_vernacular_audio(file: UploadFile = File(...)):
     """
     Process audio file: transcribe via Sarvam AI and ingest into network
     """
@@ -415,7 +417,7 @@ def process_vernacular_audio(file: UploadFile = File(...)):
         )
 
         # Read audio file with size limit
-        audio_content = file.file.read()
+        audio_content = await file.read()
 
         if len(audio_content) < 1024:
             raise ValidationError("Acoustic payload too small (likely dead-air or corrupted headers)")
@@ -434,12 +436,13 @@ def process_vernacular_audio(file: UploadFile = File(...)):
         files = {"file": (file.filename, audio_content, file.content_type)}
 
         try:
-            stt_response = requests.post(
-                settings.SARVAM_AUDIO_API_URL,
-                headers=headers,
-                files=files,
-                timeout=30,
-            )
+            async with httpx.AsyncClient() as client:
+                stt_response = await client.post(
+                    settings.SARVAM_AUDIO_API_URL,
+                    headers=headers,
+                    files=files,
+                    timeout=30,
+                )
 
             if stt_response.status_code != 200:
                 logger.error(f"Sarvam API error: {stt_response.status_code}")
@@ -456,7 +459,7 @@ def process_vernacular_audio(file: UploadFile = File(...)):
             # We process the Sarvam transcript using pure Python logic. No LLM APIs.
             # Instantaneous, free, and perfectly deterministic.
             
-            extracted_entities = nlp.extract_entities(transcript)
+            extracted_entities = await run_in_threadpool(nlp.extract_entities, transcript)
 
             structured_payload = {
                 "intent": "RESOURCE_REQUEST",
@@ -472,7 +475,7 @@ def process_vernacular_audio(file: UploadFile = File(...)):
             )
             
             # Step 3: Automatically ingest this into the Topological Graph (Neo4j)
-            _ingest_to_db(req, created_by='v2v_audio_bridge')
+            await run_in_threadpool(_ingest_to_db, req, created_by='v2v_audio_bridge')
 
             logger.info("Acoustic pipeline processed and mapped to T-Core successfully.")
 
@@ -483,7 +486,7 @@ def process_vernacular_audio(file: UploadFile = File(...)):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
-        except requests.RequestException as e:
+        except httpx.RequestError as e:
             logger.error(f"Sarvam API connection error: {e}")
             raise HTTPException(status_code=502, detail="Speech-to-text service unavailable")
 
