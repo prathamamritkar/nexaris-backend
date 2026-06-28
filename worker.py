@@ -16,6 +16,7 @@ import logging
 from datetime import datetime, timedelta
 from neo4j import GraphDatabase, exceptions as neo4j_exceptions
 from config import settings
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
 # ==================== LOGGING SETUP ====================
 logging.basicConfig(
@@ -29,6 +30,48 @@ driver = None
 MAX_RETRIES = 3
 RETRY_DELAY_SECONDS = 5
 
+def is_retriable_error(exception):
+    """Determine if a connection error is retriable."""
+    if isinstance(exception, neo4j_exceptions.AuthError):
+        logger.error(f"Authentication failed: {exception}")
+        return False
+    return True
+
+def after_retry_attempt(retry_state):
+    """Log the failure after an attempt."""
+    attempt = retry_state.attempt_number
+    exception = retry_state.outcome.exception()
+
+    if exception and not isinstance(exception, neo4j_exceptions.AuthError):
+        if isinstance(exception, neo4j_exceptions.ServiceUnavailable):
+            logger.warning(f"Database unavailable (attempt {attempt}/{MAX_RETRIES}): {exception}")
+        else:
+            logger.error(f"Connection error: {exception}")
+
+def before_sleep_log(retry_state):
+    logger.info(f"Retrying database connection (attempt {retry_state.attempt_number + 1}/{MAX_RETRIES})...")
+
+@retry(
+    stop=stop_after_attempt(MAX_RETRIES),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception(is_retriable_error),
+    reraise=True,
+    before_sleep=before_sleep_log,
+    after=after_retry_attempt
+)
+def _connect_with_retry():
+    """Inner function to handle driver connection with retries"""
+    logger.info("Attempting database connection...")
+    new_driver = GraphDatabase.driver(
+        settings.NEO4J_URI,
+        auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
+        connection_pool_size=settings.NEO4J_CONNECTION_POOL_SIZE,
+        encrypted=True,
+        trust="TRUST_SYSTEM_CA_SIGNED_CERTIFICATES",
+    )
+    new_driver.verify_connectivity()
+    logger.info("✅ Successfully connected to Neo4j")
+    return new_driver
 
 def get_db_driver():
     """Initialize Neo4j driver with connection pooling and error handling"""
@@ -37,33 +80,13 @@ def get_db_driver():
     if driver is not None:
         return driver
 
-    for attempt in range(MAX_RETRIES):
-        try:
-            logger.info(f"Attempting database connection (attempt {attempt + 1}/{MAX_RETRIES})...")
-            driver = GraphDatabase.driver(
-                settings.NEO4J_URI,
-                auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
-                connection_pool_size=settings.NEO4J_CONNECTION_POOL_SIZE,
-                encrypted=True,
-                trust="TRUST_SYSTEM_CA_SIGNED_CERTIFICATES",
-            )
-            driver.verify_connectivity()
-            logger.info("✅ Successfully connected to Neo4j")
-            return driver
-
-        except neo4j_exceptions.AuthError as e:
-            logger.error(f"Authentication failed: {e}")
-            raise
-        except neo4j_exceptions.ServiceUnavailable as e:
-            logger.warning(f"Database unavailable (attempt {attempt + 1}/{MAX_RETRIES}): {e}")
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAY_SECONDS)
-        except Exception as e:
-            logger.error(f"Connection error: {e}")
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAY_SECONDS)
-
-    raise RuntimeError("Failed to connect to Neo4j after all retries")
+    try:
+        driver = _connect_with_retry()
+        return driver
+    except neo4j_exceptions.AuthError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"Failed to connect to Neo4j after all retries") from e
 
 
 def run_query(query: str, **parameters):
