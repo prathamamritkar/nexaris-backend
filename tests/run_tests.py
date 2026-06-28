@@ -34,6 +34,11 @@ TESTS = {
         "time": "5-10 min",
         "requires_backend": True
     },
+    "unit": {
+        "file": "test_validators.py",
+        "description": "Unit tests for individual components (e.g., validators)",
+        "time": "< 1 min"
+    },
 }
 
 
@@ -216,6 +221,7 @@ def main():
     print("  python run_tests.py diagnostics   - Run system diagnostics")
     print("  python run_tests.py integration   - Run integration tests")
     print("  python run_tests.py workflow      - Run workflow tests")
+    print("  python run_tests.py unit          - Run unit tests")
     print("  python run_tests.py all           - Run all non-backend tests")
     print("  python run_tests.py help          - Show this help message\n")
 
