@@ -16,6 +16,8 @@ import logging
 from datetime import datetime, timedelta
 from neo4j import GraphDatabase, exceptions as neo4j_exceptions
 from config import settings
+from db import get_db_driver
+import db
 
 # ==================== LOGGING SETUP ====================
 logging.basicConfig(
@@ -24,55 +26,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ==================== DATABASE CONNECTION ====================
-driver = None
-MAX_RETRIES = 3
-RETRY_DELAY_SECONDS = 5
-
-
-def get_db_driver():
-    """Initialize Neo4j driver with connection pooling and error handling"""
-    global driver
-
-    if driver is not None:
-        return driver
-
-    for attempt in range(MAX_RETRIES):
-        try:
-            logger.info(f"Attempting database connection (attempt {attempt + 1}/{MAX_RETRIES})...")
-            driver = GraphDatabase.driver(
-                settings.NEO4J_URI,
-                auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
-                connection_pool_size=settings.NEO4J_CONNECTION_POOL_SIZE,
-                encrypted=True,
-                trust="TRUST_SYSTEM_CA_SIGNED_CERTIFICATES",
-            )
-            driver.verify_connectivity()
-            logger.info("✅ Successfully connected to Neo4j")
-            return driver
-
-        except neo4j_exceptions.AuthError as e:
-            logger.error(f"Authentication failed: {e}")
-            raise
-        except neo4j_exceptions.ServiceUnavailable as e:
-            logger.warning(f"Database unavailable (attempt {attempt + 1}/{MAX_RETRIES}): {e}")
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAY_SECONDS)
-        except Exception as e:
-            logger.error(f"Connection error: {e}")
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAY_SECONDS)
-
-    raise RuntimeError("Failed to connect to Neo4j after all retries")
-
 
 def run_query(query: str, **parameters):
     """Execute Cypher query with error handling"""
-    if driver is None:
+    if db.driver is None:
         raise RuntimeError("Database driver not initialized")
 
     try:
-        with driver.session() as session:
+        with db.driver.session() as session:
             result = session.run(query, **parameters)
             return [record.data() for record in result]
     except neo4j_exceptions.ServiceUnavailable as e:
@@ -95,8 +56,7 @@ def durable_agent_loop():
     logger.info(f"[{datetime.now()}] Connecting to Neo4j at {settings.NEO4J_URI}...")
 
     try:
-        global driver
-        driver = get_db_driver()
+        get_db_driver()
     except Exception as e:
         logger.error(f"Failed to initialize database connection: {e}")
         return
@@ -173,7 +133,7 @@ if __name__ == "__main__":
         logger.error(f"Fatal error: {e}")
         exit(1)
     finally:
-        if driver:
-            driver.close()
+        if db.driver:
+            db.driver.close()
             logger.info("Database connection closed")
         logger.info("PSA Worker stopped")

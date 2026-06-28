@@ -166,7 +166,7 @@ def verify_database_driver(verifier: StartupVerifier):
     print("\n[Database Driver]")
 
     try:
-        from main import get_db_driver
+        from db import get_db_driver
         from config import settings
 
         # Try to create driver (but don't verify connectivity - might not be available)
@@ -235,7 +235,7 @@ def verify_worker_process(verifier: StartupVerifier):
             content = f.read()
 
         # Check for key components
-        has_get_db_driver = "def get_db_driver()" in content
+        has_get_db_driver = "get_db_driver" in content
         has_durable_loop = "def durable_agent_loop()" in content
         has_main = "if __name__" in content
 

@@ -15,6 +15,8 @@ import requests
 import os
 
 from config import settings
+from db import get_db_driver
+import db
 from nlp_engine import nlp
 from validators import (
     validate_citizen_id,
@@ -33,36 +35,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ==================== DATABASE CONNECTION ====================
-driver = None
-
-
-def get_db_driver():
-    """Get or create Neo4j driver with connection pooling"""
-    global driver
-    if driver is None:
-        try:
-            driver = GraphDatabase.driver(
-                settings.NEO4J_URI,
-                auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
-                max_connection_pool_size=settings.NEO4J_CONNECTION_POOL_SIZE,
-            )
-            driver.verify_connectivity()
-            logger.info("✅ Connected to Neo4j database")
-        except Exception as e:
-            logger.error(f"❌ Failed to connect to Neo4j: {e}")
-            raise
-
-    return driver
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifecycle manager for startup and shutdown"""
     # Startup
     try:
-        global driver
-        driver = get_db_driver()
+        get_db_driver()
 
         if settings.PSA_ENABLED:
             logger.info("Starting Perpetual State Agent (PSA)...")
@@ -75,8 +53,8 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down NEXARIS Engine...")
-    if driver:
-        driver.close()
+    if db.driver:
+        db.driver.close()
         logger.info("Database connection closed")
 
 
@@ -169,12 +147,12 @@ def run_cypher(query: str, **parameters) -> Optional[list]:
     Execute Cypher query with error handling
     Returns list of records or None on error
     """
-    if driver is None:
+    if db.driver is None:
         logger.error("Database driver not initialized")
         raise HTTPException(status_code=500, detail="Database connection unavailable")
 
     try:
-        with driver.session() as session:
+        with db.driver.session() as session:
             result = session.run(query, **parameters)
             return [record.data() for record in result]
     except neo4j_exceptions.AuthError as e:
@@ -236,8 +214,8 @@ def root():
 def health_check():
     """Health check endpoint"""
     try:
-        if driver:
-            driver.verify_connectivity()
+        if db.driver:
+            db.driver.verify_connectivity()
         return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
     except Exception as e:
         logger.error(f"Health check failed: {e}")
