@@ -118,8 +118,8 @@ def get_browser_language():
             # Parse primary language (e.g., 'hi-IN,hi;q=0.9,en-US;q=0.8' -> 'hi')
             primary_lang = accept_lang.split(',')[0].split('-')[0].lower()
             return primary_lang
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Failed to fetch browser language: {e}")
     return 'en'
 
 def backend_url_accessible(url: str, timeout: int = 5) -> bool:
@@ -127,7 +127,8 @@ def backend_url_accessible(url: str, timeout: int = 5) -> bool:
     try:
         response = requests.get(f"{url}/health", timeout=timeout)
         return response.status_code == 200
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Backend health endpoint {url}/health inaccessible: {e}")
         return False
 
 # ==================== PAGE CONFIG ====================
