@@ -300,8 +300,9 @@ def migrate_relationships():
 
 
 async def verify_admin_key(x_admin_key: str = Header(None)):
-    admin_secret = os.getenv("ADMIN_SECRET_KEY")
-    if not admin_secret:
+    """Verify static admin API key"""
+    admin_secret = settings.ADMIN_SECRET_KEY
+    if not admin_secret or admin_secret == "fallback_secret":
         logger.error("ADMIN_SECRET_KEY is not configured in the environment.")
         raise HTTPException(status_code=500, detail="Server Configuration Error")
     if not x_admin_key or not secrets.compare_digest(x_admin_key, admin_secret):

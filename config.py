@@ -25,6 +25,8 @@ class Settings:
     SARVAM_API_KEY: str = os.getenv("SARVAM_API_KEY", "").strip()
 
     # ==================== SECURITY ====================
+    ADMIN_SECRET_KEY: str = os.getenv("ADMIN_SECRET_KEY", "fallback_secret")
+
     # CORS: Restrict to specific origins
     CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
     CORS_ALLOW_CREDENTIALS: bool = os.getenv("CORS_ALLOW_CREDENTIALS", "false").lower() == "true"
