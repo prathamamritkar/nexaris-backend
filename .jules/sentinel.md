@@ -1,0 +1,4 @@
+## 2026-06-27 - Hardcoded Admin and Cron Secrets in main.py
+**Vulnerability:** The application was using weak hardcoded fallback secrets for `ADMIN_SECRET_KEY` and `CRON_SECRET_KEY` via `os.getenv` default values. If these environment variables were omitted during deployment, an attacker could trivially bypass authentication using the known default strings.
+**Learning:** Hardcoded fallbacks for sensitive credentials in Python code (e.g., `os.getenv('KEY', 'fallback')`) silently create critical vulnerabilities if proper configuration fails. Systems must fail closed and secure when configuration is missing.
+**Prevention:** Remove fallback values for secrets. Instead, check if the environment variable is present; if it is missing, log an internal error specifying the missing key and throw an HTTP 500 Server Configuration Error to the client without leaking configuration details.
