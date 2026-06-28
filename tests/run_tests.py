@@ -34,6 +34,11 @@ TESTS = {
         "time": "5-10 min",
         "requires_backend": True
     },
+    "nlp": {
+        "file": "test_nlp_engine.py",
+        "description": "NLP engine unit tests",
+        "time": "1 min"
+    },
 }
 
 
