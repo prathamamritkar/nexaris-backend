@@ -1,6 +1,6 @@
 import re
 import logging
-from typing import Dict, Any, List, Pattern
+from typing import Dict, Any, List, Pattern, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class VernacularParser:
 
         # Precompile regex for optimal matching performance
         self.urgency_patterns: Dict[str, Pattern] = self._compile_patterns(raw_urgency_map)
-        self.item_patterns: Dict[str, Pattern] = self._compile_patterns(raw_item_map)
+        self.combined_item_pattern, self.item_group_map = self._compile_combined_pattern(raw_item_map)
         
         # Robust location extraction regex:
         # English prepositions: location context usually follows (e.g. "near St. Jude's")
@@ -61,6 +61,30 @@ class VernacularParser:
             pattern_str = r'\b(?:' + '|'.join(re.escape(kw) for kw in sorted_kws) + r')\b'
             compiled_map[key] = re.compile(pattern_str, re.IGNORECASE)
         return compiled_map
+
+    def _compile_combined_pattern(self, raw_map: Dict[str, List[str]]) -> Tuple[Pattern, Dict[str, str]]:
+        """Compiles all item keywords into a single regex with named capture groups for O(1) matching."""
+        # Flatten and globally sort all keywords by length descending (maximum munch)
+        all_keywords = []
+        for item_name, keywords in raw_map.items():
+            for kw in keywords:
+                all_keywords.append((kw, item_name))
+
+        # Sort globally by length descending to match longer phrases first, avoiding cross-category overlap issues
+        all_keywords.sort(key=lambda x: len(x[0]), reverse=True)
+
+        group_map = {}
+        patterns = []
+
+        for i, (kw, item_name) in enumerate(all_keywords):
+            group_name = f"KW_{i}"
+            group_map[group_name] = item_name
+            # Escape keyword and wrap in word boundaries
+            pattern_str = r'(?P<' + group_name + r'>\b' + re.escape(kw) + r'\b)'
+            patterns.append(pattern_str)
+
+        combined_pattern = re.compile('|'.join(patterns), re.IGNORECASE)
+        return combined_pattern, group_map
 
     def extract_entities(self, transcript: str) -> Dict[str, Any]:
         """
@@ -96,12 +120,11 @@ class VernacularParser:
         detected_item = "UNKNOWN_RESOURCE"
         longest_match_len = 0
         
-        for item_name, pattern in self.item_patterns.items():
-            for match in pattern.finditer(clean_text):
-                match_length = len(match.group())
-                if match_length > longest_match_len:
-                    longest_match_len = match_length
-                    detected_item = item_name
+        for match in self.combined_item_pattern.finditer(clean_text):
+            match_length = len(match.group())
+            if match_length > longest_match_len:
+                longest_match_len = match_length
+                detected_item = self.item_group_map[match.lastgroup]
 
         # Edge Case 4: Location Extraction
         location_context = ""
