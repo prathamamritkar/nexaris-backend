@@ -1,0 +1,4 @@
+## 2026-06-28 - Hardcoded Fallback Secrets
+**Vulnerability:** Found hardcoded fallback secrets `fallback_secret` and `generate_a_long_random_string_here` used for critical administration endpoints if the environment variables are not set.
+**Learning:** Defaulting to a static string when environment variables are missing allows attackers to bypass authorization trivially in misconfigured deployments. Using `secrets.token_urlsafe(32)` as a fallback correctly secures the endpoints by locking them down with a random, unguessable key.
+**Prevention:** Never use hardcoded strings for secrets, even as fallbacks. If an environment variable is required, either fail on startup or default to a securely randomized token that changes on every boot.
