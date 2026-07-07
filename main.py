@@ -13,6 +13,7 @@ from neo4j import GraphDatabase, exceptions as neo4j_exceptions
 from pydantic import BaseModel, Field, field_validator
 import requests
 import os
+from cachetools import cached, TTLCache
 
 from config import settings
 from nlp_engine import nlp
@@ -308,21 +309,25 @@ async def verify_admin_key(x_admin_key: str = Header(None)):
         raise HTTPException(status_code=401, detail="Unauthorized Command Center Access")
     return x_admin_key
 
+@cached(cache=TTLCache(maxsize=1, ttl=10))
+def _fetch_graph_state() -> list:
+    query = """
+    MATCH (c:Citizen)-[n:NEEDS]->(r:Resource)
+    RETURN c.id AS citizen, r.type AS resource,
+           coalesce(n.urgency, 'UNKNOWN') AS urgency,
+           coalesce(n.status, 'PENDING') AS status,
+           coalesce(n.timestamp, 'N/A') AS request_time
+    ORDER BY n.timestamp DESC
+    LIMIT 1000
+    """
+    return run_cypher(query)
+
+
 @app.get("/api/v1/graph-state")
 def get_graph_state(admin_key: str = Depends(verify_admin_key)):
     """Retrieve current graph state (AUTHENTICATED)"""
     try:
-        query = """
-        MATCH (c:Citizen)-[n:NEEDS]->(r:Resource)
-        RETURN c.id AS citizen, r.type AS resource,
-               coalesce(n.urgency, 'UNKNOWN') AS urgency,
-               coalesce(n.status, 'PENDING') AS status,
-               coalesce(n.timestamp, 'N/A') AS request_time
-        ORDER BY n.timestamp DESC
-        LIMIT 1000
-        """
-
-        results = run_cypher(query)
+        results = _fetch_graph_state()
 
         logger.debug(f"Graph state retrieved: {len(results)} relationships")
 
