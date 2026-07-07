@@ -11,10 +11,10 @@ Security & Scalability Improvements:
 - Graceful shutdown handling
 - Connection retry logic
 """
-import time
+import asyncio
 import logging
 from datetime import datetime, timedelta
-from neo4j import GraphDatabase, exceptions as neo4j_exceptions
+from neo4j import AsyncGraphDatabase, exceptions as neo4j_exceptions
 from config import settings
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 # ==================== DATABASE CONNECTION ====================
 driver = None
 MAX_RETRIES = 3
-RETRY_DELAY_SECONDS = 5
 
 def is_retriable_error(exception):
     """Determine if a connection error is retriable."""
@@ -59,21 +58,21 @@ def before_sleep_log(retry_state):
     before_sleep=before_sleep_log,
     after=after_retry_attempt
 )
-def _connect_with_retry():
+async def _connect_with_retry():
     """Inner function to handle driver connection with retries"""
     logger.info("Attempting database connection...")
-    new_driver = GraphDatabase.driver(
+    new_driver = AsyncGraphDatabase.driver(
         settings.NEO4J_URI,
         auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
         connection_pool_size=settings.NEO4J_CONNECTION_POOL_SIZE,
         encrypted=True,
         trust="TRUST_SYSTEM_CA_SIGNED_CERTIFICATES",
     )
-    new_driver.verify_connectivity()
+    await new_driver.verify_connectivity()
     logger.info("✅ Successfully connected to Neo4j")
     return new_driver
 
-def get_db_driver():
+async def get_db_driver():
     """Initialize Neo4j driver with connection pooling and error handling"""
     global driver
 
@@ -81,7 +80,7 @@ def get_db_driver():
         return driver
 
     try:
-        driver = _connect_with_retry()
+        driver = await _connect_with_retry()
         return driver
     except neo4j_exceptions.AuthError:
         raise
@@ -89,15 +88,15 @@ def get_db_driver():
         raise RuntimeError(f"Failed to connect to Neo4j after all retries") from e
 
 
-def run_query(query: str, **parameters):
+async def run_query(query: str, **parameters):
     """Execute Cypher query with error handling"""
     if driver is None:
         raise RuntimeError("Database driver not initialized")
 
     try:
-        with driver.session() as session:
-            result = session.run(query, **parameters)
-            return [record.data() for record in result]
+        async with driver.session() as session:
+            result = await session.run(query, **parameters)
+            return [record.data() async for record in result]
     except neo4j_exceptions.ServiceUnavailable as e:
         logger.error(f"Database service unavailable: {e}")
         raise
@@ -106,7 +105,7 @@ def run_query(query: str, **parameters):
         raise
 
 
-def durable_agent_loop():
+async def durable_agent_loop():
     """
     Infinite autonomous loop that wakes periodically and scans the topological core
     for unfulfilled resource requests. Automatically assigns optimal supplier routes
@@ -119,7 +118,7 @@ def durable_agent_loop():
 
     try:
         global driver
-        driver = get_db_driver()
+        driver = await get_db_driver()
     except Exception as e:
         logger.error(f"Failed to initialize database connection: {e}")
         return
@@ -143,7 +142,7 @@ def durable_agent_loop():
             """
 
             try:
-                results = run_query(
+                results = await run_query(
                     query,
                     timestamp=datetime.utcnow().isoformat()
                 )
@@ -173,9 +172,9 @@ def durable_agent_loop():
 
         # Sleep before next cycle
         logger.info(f"[{datetime.now()}] 💤 Agent entering hibernation. Waking in {settings.PSA_POLLING_INTERVAL_SECONDS}s...")
-        time.sleep(settings.PSA_POLLING_INTERVAL_SECONDS)
+        await asyncio.sleep(settings.PSA_POLLING_INTERVAL_SECONDS)
 
-if __name__ == "__main__":
+async def main():
     """
     Main entry point for PSA worker process
     """
@@ -189,14 +188,20 @@ if __name__ == "__main__":
     logger.info("✅ Configuration validated")
 
     try:
-        durable_agent_loop()
-    except KeyboardInterrupt:
-        logger.info("\n🛑 PSA Gracefully shutting down...")
+        await durable_agent_loop()
+    except asyncio.CancelledError:
+        logger.info("\n🛑 PSA loop cancelled, shutting down...")
     except Exception as e:
         logger.error(f"Fatal error: {e}")
         exit(1)
     finally:
         if driver:
-            driver.close()
+            await driver.close()
             logger.info("Database connection closed")
         logger.info("PSA Worker stopped")
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("\n🛑 PSA Gracefully shutting down via keyboard interrupt...")
