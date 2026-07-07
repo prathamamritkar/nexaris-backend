@@ -340,11 +340,7 @@ def get_graph_state(admin_key: str = Depends(verify_admin_key)):
 api_key_header = APIKeyHeader(name="X-Cron-Signature", auto_error=True)
 
 async def verify_cron_key(api_key: str = Security(api_key_header)):
-    cron_secret_key = os.getenv("CRON_SECRET_KEY")
-    if not cron_secret_key:
-        logger.error("CRON_SECRET_KEY is not configured in the environment.")
-        raise HTTPException(status_code=500, detail="Server Configuration Error")
-    if not api_key or not secrets.compare_digest(api_key, cron_secret_key):
+    if not api_key or not secrets.compare_digest(api_key, settings.CRON_SECRET_KEY):
         raise HTTPException(status_code=403, detail="Invalid Cron Signature")
     return api_key
 
