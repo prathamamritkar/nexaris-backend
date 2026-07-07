@@ -4,6 +4,7 @@ Secure interface for submitting resource requests to the NEXARIS backend
 import streamlit as st
 import requests
 import os
+import html
 from datetime import datetime, timezone
 import logging
 from audio_recorder_streamlit import audio_recorder
@@ -290,10 +291,12 @@ if audio_bytes or text_fallback:
                         payload = data["structured_payload"].get("entities", {})
                         st.info(f"**Item**: {payload.get('item')}\n\n**Urgency**: {payload.get('urgency')}\n\n**Location**: {payload.get('location_context')}")
                 else:
-                    st.markdown(f"<div class='error-badge' role='alert' aria-live='assertive'>{t['error']}: {response.json().get('detail', 'Unknown Error')}</div>", unsafe_allow_html=True)
+                    error_detail = html.escape(str(response.json().get('detail', 'Unknown Error')))
+                    st.markdown(f"<div class='error-badge' role='alert' aria-live='assertive'>{t['error']}: {error_detail}</div>", unsafe_allow_html=True)
                     
             except Exception as e:
-                st.markdown(f"<div class='error-badge' role='alert' aria-live='assertive'>NETWORK FAILURE: {e}</div>", unsafe_allow_html=True)
+                error_msg = html.escape(str(e))
+                st.markdown(f"<div class='error-badge' role='alert' aria-live='assertive'>NETWORK FAILURE: {error_msg}</div>", unsafe_allow_html=True)
 
 # ==================== SIDEBAR INFO ====================
 with st.sidebar:
