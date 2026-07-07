@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, field_validator
 import requests
 import httpx
 import os
+from cachetools import cached, TTLCache
 
 from config import settings
 from nlp_engine import nlp
@@ -310,21 +311,25 @@ async def verify_admin_key(x_admin_key: str = Header(None)):
         raise HTTPException(status_code=401, detail="Unauthorized Command Center Access")
     return x_admin_key
 
+@cached(cache=TTLCache(maxsize=1, ttl=10))
+def _fetch_graph_state() -> list:
+    query = """
+    MATCH (c:Citizen)-[n:NEEDS]->(r:Resource)
+    RETURN c.id AS citizen, r.type AS resource,
+           coalesce(n.urgency, 'UNKNOWN') AS urgency,
+           coalesce(n.status, 'PENDING') AS status,
+           coalesce(n.timestamp, 'N/A') AS request_time
+    ORDER BY n.timestamp DESC
+    LIMIT 1000
+    """
+    return run_cypher(query)
+
+
 @app.get("/api/v1/graph-state")
 def get_graph_state(admin_key: str = Depends(verify_admin_key)):
     """Retrieve current graph state (AUTHENTICATED)"""
     try:
-        query = """
-        MATCH (c:Citizen)-[n:NEEDS]->(r:Resource)
-        RETURN c.id AS citizen, r.type AS resource,
-               coalesce(n.urgency, 'UNKNOWN') AS urgency,
-               coalesce(n.status, 'PENDING') AS status,
-               coalesce(n.timestamp, 'N/A') AS request_time
-        ORDER BY n.timestamp DESC
-        LIMIT 1000
-        """
-
-        results = run_cypher(query)
+        results = _fetch_graph_state()
 
         logger.debug(f"Graph state retrieved: {len(results)} relationships")
 
@@ -342,11 +347,7 @@ def get_graph_state(admin_key: str = Depends(verify_admin_key)):
 api_key_header = APIKeyHeader(name="X-Cron-Signature", auto_error=True)
 
 async def verify_cron_key(api_key: str = Security(api_key_header)):
-    cron_secret_key = os.getenv("CRON_SECRET_KEY")
-    if not cron_secret_key:
-        logger.error("CRON_SECRET_KEY is not configured in the environment.")
-        raise HTTPException(status_code=500, detail="Server Configuration Error")
-    if not api_key or not secrets.compare_digest(api_key, cron_secret_key):
+    if not api_key or not secrets.compare_digest(api_key, settings.CRON_SECRET_KEY):
         raise HTTPException(status_code=403, detail="Invalid Cron Signature")
     return api_key
 
@@ -401,6 +402,40 @@ async def perpetual_state_agent_loop():
         await asyncio.sleep(settings.PSA_POLLING_INTERVAL_SECONDS)
 
 
+def _transcribe_audio(filename: str, audio_content: bytes, content_type: str) -> str:
+    """Helper function to call Sarvam API for speech-to-text"""
+    headers = {
+        "api-subscription-key": settings.SARVAM_API_KEY,
+        "User-Agent": "NEXARIS/2.0",
+    }
+
+    files = {"file": (filename, audio_content, content_type)}
+
+    try:
+        stt_response = requests.post(
+            settings.SARVAM_AUDIO_API_URL,
+            headers=headers,
+            files=files,
+            timeout=30,
+        )
+
+        if stt_response.status_code != 200:
+            logger.error(f"Sarvam API error: {stt_response.status_code}")
+            raise HTTPException(status_code=502, detail="Speech-to-text service error")
+
+        transcript = stt_response.json().get("transcript", "").strip()
+
+        if not transcript:
+            raise HTTPException(status_code=400, detail="No speech detected in audio")
+
+        logger.info(f"Transcription successful: {len(transcript)} characters")
+        return transcript
+
+    except requests.RequestException as e:
+        logger.error(f"Sarvam API connection error: {e}")
+        raise HTTPException(status_code=502, detail="Speech-to-text service unavailable")
+
+
 @app.post("/api/v1/ingest/audio")
 async def process_vernacular_audio(file: UploadFile = File(...)):
     """
@@ -427,15 +462,14 @@ async def process_vernacular_audio(file: UploadFile = File(...)):
 
         logger.info(f"Processing audio: {file.filename} ({len(audio_content)} bytes)")
 
-        # Step 1: Call Sarvam API for speech-to-text
-        headers = {
-            "api-subscription-key": settings.SARVAM_API_KEY,
-            "User-Agent": "NEXARIS/2.0",
-        }
-
-        files = {"file": (file.filename, audio_content, file.content_type)}
-
         try:
+            # Step 1: Call Sarvam API for speech-to-text
+            headers = {
+                "api-subscription-key": settings.SARVAM_API_KEY,
+                "User-Agent": "NEXARIS/2.0",
+            }
+            files = {"file": (file.filename, audio_content, file.content_type)}
+
             async with httpx.AsyncClient() as client:
                 stt_response = await client.post(
                     settings.SARVAM_AUDIO_API_URL,
