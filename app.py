@@ -4,6 +4,7 @@ Secure interface for submitting resource requests to the NEXARIS backend
 import streamlit as st
 import requests
 import os
+import html
 from datetime import datetime, timezone
 import logging
 from audio_recorder_streamlit import audio_recorder
@@ -118,8 +119,8 @@ def get_browser_language():
             # Parse primary language (e.g., 'hi-IN,hi;q=0.9,en-US;q=0.8' -> 'hi')
             primary_lang = accept_lang.split(',')[0].split('-')[0].lower()
             return primary_lang
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Failed to fetch browser language: {e}")
     return 'en'
 
 def backend_url_accessible(url: str, timeout: int = 5) -> bool:
@@ -127,7 +128,8 @@ def backend_url_accessible(url: str, timeout: int = 5) -> bool:
     try:
         response = requests.get(f"{url}/health", timeout=timeout)
         return response.status_code == 200
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Backend health endpoint {url}/health inaccessible: {e}")
         return False
 
 # ==================== PAGE CONFIG ====================
@@ -289,10 +291,12 @@ if audio_bytes or text_fallback:
                         payload = data["structured_payload"].get("entities", {})
                         st.info(f"**Item**: {payload.get('item')}\n\n**Urgency**: {payload.get('urgency')}\n\n**Location**: {payload.get('location_context')}")
                 else:
-                    st.markdown(f"<div class='error-badge' role='alert' aria-live='assertive'>{t['error']}: {response.json().get('detail', 'Unknown Error')}</div>", unsafe_allow_html=True)
+                    error_detail = html.escape(str(response.json().get('detail', 'Unknown Error')))
+                    st.markdown(f"<div class='error-badge' role='alert' aria-live='assertive'>{t['error']}: {error_detail}</div>", unsafe_allow_html=True)
                     
             except Exception as e:
-                st.markdown(f"<div class='error-badge' role='alert' aria-live='assertive'>NETWORK FAILURE: {e}</div>", unsafe_allow_html=True)
+                error_msg = html.escape(str(e))
+                st.markdown(f"<div class='error-badge' role='alert' aria-live='assertive'>NETWORK FAILURE: {error_msg}</div>", unsafe_allow_html=True)
 
 # ==================== SIDEBAR INFO ====================
 with st.sidebar:

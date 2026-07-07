@@ -6,3 +6,6 @@
 
 **Learning:** Consolidating multiple dictionary loop regex patterns into a single combined regex using named capture groups reduces extraction time by eliminating the $O(N \times M)$ processing overhead. Sorting all keywords globally by length (descending) before compiling the pattern correctly enforces the Maximum Munch algorithm while avoiding cross-category pattern overlap fragilities inherent in eager regex alternations (`|`).
 **Action:** When asked to optimize iterative pattern matching paths, look for opportunities to compile single-pass `re` objects with named capturing groups mapped dynamically back to the requested entity structures.
+## 2026-06-28 - Exception Handling Code Health
+**Learning:** Empty exception blocks (`except Exception: pass`) obscure potential runtime issues and make debugging difficult.
+**Action:** When working with Streamlit UI code or Backend API health checks, always ensure exceptions are appropriately logged (using `.debug()` for UI extraction fallbacks or `.warning()` for external endpoint access failures) so issues can be traced without crashing the application.
