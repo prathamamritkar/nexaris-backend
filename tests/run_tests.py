@@ -39,6 +39,11 @@ TESTS = {
         "description": "Unit tests for individual components (e.g., validators)",
         "time": "< 1 min"
     },
+    "nlp": {
+        "file": "test_nlp_engine.py",
+        "description": "NLP engine unit tests",
+        "time": "1 min"
+    },
 }
 
 
@@ -209,7 +214,7 @@ def main():
 
         else:
             print(f"Unknown command: {command}")
-            print("Use: python run_tests.py [startup|diagnostics|integration|workflow|all|help]")
+            print("Use: python run_tests.py [startup|diagnostics|integration|workflow|unit|nlp|all|help]")
             sys.exit(1)
 
     # Interactive menu
@@ -222,6 +227,7 @@ def main():
     print("  python run_tests.py integration   - Run integration tests")
     print("  python run_tests.py workflow      - Run workflow tests")
     print("  python run_tests.py unit          - Run unit tests")
+    print("  python run_tests.py nlp           - Run NLP engine tests")
     print("  python run_tests.py all           - Run all non-backend tests")
     print("  python run_tests.py help          - Show this help message\n")
 
