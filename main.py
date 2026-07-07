@@ -395,6 +395,40 @@ async def perpetual_state_agent_loop():
         await asyncio.sleep(settings.PSA_POLLING_INTERVAL_SECONDS)
 
 
+def _transcribe_audio(filename: str, audio_content: bytes, content_type: str) -> str:
+    """Helper function to call Sarvam API for speech-to-text"""
+    headers = {
+        "api-subscription-key": settings.SARVAM_API_KEY,
+        "User-Agent": "NEXARIS/2.0",
+    }
+
+    files = {"file": (filename, audio_content, content_type)}
+
+    try:
+        stt_response = requests.post(
+            settings.SARVAM_AUDIO_API_URL,
+            headers=headers,
+            files=files,
+            timeout=30,
+        )
+
+        if stt_response.status_code != 200:
+            logger.error(f"Sarvam API error: {stt_response.status_code}")
+            raise HTTPException(status_code=502, detail="Speech-to-text service error")
+
+        transcript = stt_response.json().get("transcript", "").strip()
+
+        if not transcript:
+            raise HTTPException(status_code=400, detail="No speech detected in audio")
+
+        logger.info(f"Transcription successful: {len(transcript)} characters")
+        return transcript
+
+    except requests.RequestException as e:
+        logger.error(f"Sarvam API connection error: {e}")
+        raise HTTPException(status_code=502, detail="Speech-to-text service unavailable")
+
+
 @app.post("/api/v1/ingest/audio")
 def process_vernacular_audio(file: UploadFile = File(...)):
     """
@@ -421,67 +455,43 @@ def process_vernacular_audio(file: UploadFile = File(...)):
 
         logger.info(f"Processing audio: {file.filename} ({len(audio_content)} bytes)")
 
-        # Step 1: Call Sarvam API for speech-to-text
-        headers = {
-            "api-subscription-key": settings.SARVAM_API_KEY,
-            "User-Agent": "NEXARIS/2.0",
+        # Step 1: Call Sarvam API for speech-to-text via helper function
+        transcript = _transcribe_audio(
+            filename=file.filename or "",
+            audio_content=audio_content,
+            content_type=file.content_type or ""
+        )
+
+        # Step 2: Zero-Dependency Deterministic Entity Extraction
+        # We process the Sarvam transcript using pure Python logic. No LLM APIs.
+        # Instantaneous, free, and perfectly deterministic.
+
+        extracted_entities = nlp.extract_entities(transcript)
+
+        structured_payload = {
+            "intent": "RESOURCE_REQUEST",
+            "entities": extracted_entities
         }
 
-        files = {"file": (file.filename, audio_content, file.content_type)}
+        req = ResourceRequest(
+            citizen_id=f"voice_node_{int(datetime.now(timezone.utc).timestamp())}",
+            intent="RESOURCE_REQUEST",
+            item=extracted_entities["item"],
+            urgency=extracted_entities["urgency"],
+            location_context=extracted_entities["location_context"]
+        )
 
-        try:
-            stt_response = requests.post(
-                settings.SARVAM_AUDIO_API_URL,
-                headers=headers,
-                files=files,
-                timeout=30,
-            )
+        # Step 3: Automatically ingest this into the Topological Graph (Neo4j)
+        _ingest_to_db(req, created_by='v2v_audio_bridge')
 
-            if stt_response.status_code != 200:
-                logger.error(f"Sarvam API error: {stt_response.status_code}")
-                raise HTTPException(status_code=502, detail="Speech-to-text service error")
+        logger.info("Acoustic pipeline processed and mapped to T-Core successfully.")
 
-            transcript = stt_response.json().get("transcript", "").strip()
-
-            if not transcript:
-                raise HTTPException(status_code=400, detail="No speech detected in audio")
-
-            logger.info(f"Transcription successful: {len(transcript)} characters")
-
-            # Step 2: Zero-Dependency Deterministic Entity Extraction
-            # We process the Sarvam transcript using pure Python logic. No LLM APIs.
-            # Instantaneous, free, and perfectly deterministic.
-            
-            extracted_entities = nlp.extract_entities(transcript)
-
-            structured_payload = {
-                "intent": "RESOURCE_REQUEST",
-                "entities": extracted_entities
-            }
-            
-            req = ResourceRequest(
-                citizen_id=f"voice_node_{int(datetime.now(timezone.utc).timestamp())}",
-                intent="RESOURCE_REQUEST",
-                item=extracted_entities["item"],
-                urgency=extracted_entities["urgency"],
-                location_context=extracted_entities["location_context"]
-            )
-            
-            # Step 3: Automatically ingest this into the Topological Graph (Neo4j)
-            _ingest_to_db(req, created_by='v2v_audio_bridge')
-
-            logger.info("Acoustic pipeline processed and mapped to T-Core successfully.")
-
-            return {
-                "status": "success",
-                "message": "Audio processed and mapped to topological network",
-                "structured_payload": structured_payload,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }
-
-        except requests.RequestException as e:
-            logger.error(f"Sarvam API connection error: {e}")
-            raise HTTPException(status_code=502, detail="Speech-to-text service unavailable")
+        return {
+            "status": "success",
+            "message": "Audio processed and mapped to topological network",
+            "structured_payload": structured_payload,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
 
     except ValidationError as e:
         logger.warning(f"Audio validation failed: {e}")
