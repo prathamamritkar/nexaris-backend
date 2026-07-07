@@ -7,6 +7,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Pre-compute control characters translation table for validation
+# Removes all ASCII control chars (0-31) except \t (9), \n (10), \r (13)
+_CONTROL_CHARS_TO_REMOVE = "".join(chr(i) for i in range(32) if i not in (9, 10, 13))
+_CONTROL_CHARS_TABLE = str.maketrans("", "", _CONTROL_CHARS_TO_REMOVE)
+
 
 class ValidationError(Exception):
     """Custom exception for validation failures"""
@@ -50,7 +55,7 @@ def validate_location_context(location: str, max_length: int = 500) -> str:
         raise ValidationError(f"location_context must be under {max_length} characters")
 
     # Remove any control characters
-    location = "".join(char for char in location if ord(char) >= 32 or char in "\n\r\t")
+    location = location.translate(_CONTROL_CHARS_TABLE)
 
     return location
 
