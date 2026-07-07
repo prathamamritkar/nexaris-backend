@@ -553,6 +553,49 @@ def test_validators_module(results: TestResults):
         results.add_fail("Validators: Module load", str(e))
 
 
+def test_validate_audio_file(results: TestResults):
+    """Test validate_audio_file function"""
+    try:
+        from validators import validate_audio_file, ValidationError
+    except ImportError as e:
+        results.add_fail("Validators: Audio file test setup", str(e))
+        return
+
+    allowed_types = ["audio/mpeg", "audio/wav"]
+    max_size_bytes = 10 * 1024 * 1024  # 10 MB
+
+    test_cases = [
+        # (filename, size, content_type, should_pass, description)
+        ("test.mp3", 1024, "audio/mpeg", True, "Valid mp3"),
+        ("test.wav", 1024, "audio/wav", True, "Valid wav"),
+        ("", 1024, "audio/mpeg", False, "Empty filename"),
+        ("test.mp3", 11 * 1024 * 1024, "audio/mpeg", False, "Size exceeds limit"),
+        ("test.mp3", 1024, "audio/ogg", False, "Invalid MIME type (not in allowed list)"),
+        ("test.wav", 1024, "audio/mpeg", False, "Extension doesn't match MIME type"),
+    ]
+
+    for filename, size, content_type, should_pass, description in test_cases:
+        try:
+            validate_audio_file(
+                filename=filename,
+                file_size=size,
+                content_type=content_type,
+                max_size_bytes=max_size_bytes,
+                allowed_types=allowed_types
+            )
+            if should_pass:
+                results.add_pass(f"Audio file validation: {description}")
+            else:
+                results.add_fail(f"Audio file validation: {description}", "Should have raised ValidationError")
+        except ValidationError as e:
+            if not should_pass:
+                results.add_pass(f"Audio file validation: {description} (properly rejected)")
+            else:
+                results.add_fail(f"Audio file validation: {description}", str(e))
+        except Exception as e:
+            results.add_fail(f"Audio file validation: {description}", str(e))
+
+
 # ==================== MAIN TEST RUNNER ====================
 def run_all_tests():
     """Run all integration tests"""
@@ -567,6 +610,7 @@ def run_all_tests():
     print(f"\n{Colors.BLUE}[Configuration Tests]{Colors.END}")
     test_configuration_loading(results)
     test_validators_module(results)
+    test_validate_audio_file(results)
 
     # Connectivity Tests
     print(f"\n{Colors.BLUE}[Connectivity Tests]{Colors.END}")
